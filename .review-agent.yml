@@ -1,0 +1,10 @@
+version: 1
+
+skills:
+  path: .skills
+
+review:
+  max_findings: 20
+
+output:
+  format: github-pr
