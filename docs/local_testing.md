@@ -1,106 +1,108 @@
 # Guia de Teste Manual e Local do Review Agent
 
-Este guia detalha o passo a passo de como rodar, depurar e testar o **Review Agent** em sua máquina local de forma controlada e sem a necessidade de publicar imagens Docker ou configurar fluxos reais do GitHub.
+Este guia orienta detalhadamente como testar localmente o **Review Agent**, separando claramente as ações que devem ser executadas na pasta do **Review Agent** (onde o código da ferramenta foi desenvolvido) e na pasta do **seu projeto alvo** (onde está o código que você deseja revisar, por exemplo, o seu repositório FastAPI/LangChain).
 
 ---
 
-## Próximos Passos & Pré-requisitos
-
-Certifique-se de possuir instalado em sua máquina:
-- **Node.js 22+**
-- **npm** (ou yarn / pnpm)
-- **Git**
+## Estrutura de Pastas de Exemplo
+Para os fins deste guia, utilizaremos os seguintes caminhos locais de exemplo:
+- **Pasta do Review Agent**: `/home/gilson-russo/development/professional/review-code-harness`
+- **Pasta do Seu Projeto Alvo**: `/home/gilson-russo/development/personal/assistant-ai-fastapi-langchain/backend`
 
 ---
 
-## Passo 1: Inicialização do Repositório Git Local
-O `DiffLoader` necessita de um repositório git ativo e histórico de commits para comparar as alterações. Se o seu projeto de testes ainda não possui o Git inicializado, execute na pasta do projeto:
+## Parte 1: Preparação do Review Agent (Na pasta do Review Agent)
 
-```bash
-git init
-git config user.email "dev@example.com"
-git config user.name "Developer"
-git add .
-git commit -m "feat: commit inicial do projeto"
-```
+Antes de testar, precisamos garantir que o código em TypeScript do Review Agent esteja devidamente compilado em JavaScript.
 
----
+1. **Abra o terminal na pasta do Review Agent**:
+   ```bash
+   cd /home/gilson-russo/development/professional/review-code-harness
+   ```
 
-## Passo 2: Inicializar as Configurações do Review Agent
-Utilize o comando `init` exposto pela CLI para gerar as pastas padrão de regras e o arquivo de configuração `.review-agent.yml`:
-
-```bash
-npx tsx src/cli/index.ts init
-```
-
-Esse comando irá criar:
-- A pasta `.skills/` com arquivos markdown de exemplo (`architecture.md` e `security.md`).
-- O arquivo de configuração padrão `.review-agent.yml` na raiz.
-
-Adicione e comite as regras geradas no Git:
-```bash
-git add .skills/ .review-agent.yml
-git commit -m "chore: inicializar configuracoes do review-agent"
-```
+2. **Compile o projeto**:
+   ```bash
+   npm run build
+   ```
+   *Isso gerará a pasta `dist/` contendo o binário executável em `dist/cli/index.js`*.
 
 ---
 
-## Passo 3: Criar um Diff de Teste (Simular PR)
-Crie uma nova branch local e faça uma alteração de código qualquer para simularmos um Pull Request:
+## Parte 2: Preparação do Projeto Alvo (Na pasta do seu Projeto Alvo)
 
-```bash
-git checkout -b feature/test-review
-echo "// Comentário adicionado para testar o diff" >> src/cli/index.ts
-git add src/cli/index.ts
-git commit -m "feat: fazer alteracao na cli"
-```
+Agora, vamos preparar o seu repositório pessoal de testes para receber o Review Agent.
 
----
+1. **Abra o terminal na pasta do seu Projeto Alvo**:
+   ```bash
+   cd /home/gilson-russo/development/personal/assistant-ai-fastapi-langchain/backend
+   ```
 
-## Passo 4: Criar o Script Simulador do OpenCode
-Caso você não possua o binário oficial do OpenCode instalado localmente, crie um script mockup chamado `mock-opencode.sh` na raiz do seu projeto para simular a saída da IA:
+2. **Garanta que o repositório possua Git inicializado e commits anteriores**:
+   Como a nossa ferramenta compara ramos via `git diff`, o repositório precisa ter pelo menos um commit inicial na branch principal (`master` ou `main`).
+   ```bash
+   git init
+   git config user.email "dev@example.com"
+   git config user.name "Developer"
+   git add .
+   git commit -m "feat: commit inicial do código do projeto"
+   ```
 
-```bash
-#!/bin/bash
-# mock-opencode.sh
+3. **Inicialize as configurações do Review Agent**:
+   Rode o comando `init` do Review Agent de dentro da pasta do seu projeto alvo, apontando para o binário da ferramenta:
+   ```bash
+   node /home/gilson-russo/development/professional/review-code-harness/dist/cli/index.js init
+   ```
+   *Esse comando criará automaticamente a pasta `.skills/` (com templates de regras em markdown) e o arquivo de configurações `.review-agent.yml` na raiz do seu projeto alvo*.
 
-echo '{
-  "findings": [
-    {
-      "severity": "high",
-      "file": "src/cli/index.ts",
-      "line": 15,
-      "title": "Função muito extensa",
-      "description": "A função action do comando run ultrapassou o limite recomendado pelas regras de arquitetura.",
-      "suggestion": "Extraia a lógica interna para uma função auxiliar ou método na classe engine."
-    },
-    {
-      "severity": "critical",
-      "file": "src/cli/index.ts",
-      "line": 2,
-      "title": "Importação insegura",
-      "description": "Detectou-se uma dependência importada diretamente sem sanitização.",
-      "suggestion": "Certifique-se de que os inputs da CLI sejam estritamente validados com zod."
-    }
-  ]
-}'
-```
+4. **Registre as novas configurações no Git**:
+   ```bash
+   git add .skills/ .review-agent.yml
+   git commit -m "chore: adicionar configuracoes do review-agent"
+   ```
 
-Dê permissões de execução para o script simulador:
-```bash
-chmod +x mock-opencode.sh
-```
+5. **Crie uma branch e faça uma alteração de código (Simulação de Pull Request)**:
+   Mude para uma nova branch de desenvolvimento, faça uma edição e comite-a:
+   ```bash
+   git checkout -b feature/test-review
+   echo "# Comentário de teste para validar o Review Agent" >> main.py
+   git add main.py
+   git commit -m "feat: adicionar comentarios de teste"
+   ```
 
 ---
 
-## Passo 5: Executar a CLI em Modo Local (Dry-Run)
-Para executar a revisão completa e exibir o resumo estruturado e os findings diretamente no seu terminal, sem realizar requisições ou tentar postar comentários na API do GitHub, execute:
+## Parte 3: Executando a Revisão Local (Na pasta do seu Projeto Alvo)
 
-```bash
-OPENCODE_BIN=./mock-opencode.sh npx tsx src/cli/index.ts run --dry-run
-```
+Por fim, vamos simular a execução do revisor utilizando o OpenCode mockado.
 
-### O que esperar no output do terminal:
-1. Logs do orquestrador carregando as configurações e as skills Markdown.
-2. A invocação do seu script `mock-opencode.sh` simulando a análise.
-3. A exibição de um relatório Markdown com tabelas organizando os findings por severidade, arquivos e descrições técnicas.
+1. **Garanta a existência do script simulador do OpenCode**:
+   Crie o arquivo `mock-opencode.sh` na raiz do seu **Projeto Alvo** com o conteúdo a seguir:
+   ```bash
+   #!/bin/bash
+   echo '{
+     "findings": [
+       {
+         "severity": "high",
+         "file": "main.py",
+         "line": 10,
+         "title": "Violacao de Regra do FastAPI",
+         "description": "Falta validacao de dados no endpoint utilizando pydantic.",
+         "suggestion": "Quebre a lógica em schemas estruturados."
+       }
+     ]
+   }'
+   ```
+
+2. **Dê permissão de execução ao simulador**:
+   ```bash
+   chmod +x mock-opencode.sh
+   ```
+
+3. **Rode o Review Agent localmente (Modo Dry-Run)**:
+   De dentro da pasta do seu **Projeto Alvo**, execute o orquestrador configurando a variável `OPENCODE_BIN` para apontar para o script simulador:
+   ```bash
+   OPENCODE_BIN=./mock-opencode.sh node /home/gilson-russo/development/professional/review-code-harness/dist/cli/index.js run --dry-run
+   ```
+
+4. **Observe os Resultados**:
+   O Review Agent irá carregar a configuração local, o diff da branch `master...feature/test-review`, extrairá o JSON mockado do OpenCode e imprimirá o resumo e a tabela Markdown de findings diretamente no seu console!
