@@ -244,6 +244,43 @@ jobs:
             ghcr.io/seu-usuario/review-agent:latest
 ```
 
+### Passo 4: Configurar as Variáveis de Ambiente e Segredos (Secrets)
+
+Para que a execução no GitHub Actions (ou localmente) funcione com sucesso, certifique-se de configurar as seguintes chaves de API nos segredos do seu repositório (**Repository Secrets**):
+
+#### 🔑 Segredos Obrigatórios (Modelos de IA)
+Configure pelo menos **uma** das chaves abaixo de acordo com o provedor que deseja utilizar na IA do OpenCode:
+* `GOOGLE_GENERATIVE_AI_API_KEY`: Chave de API da Google GenAI (Gemini).
+* `OPENAI_API_KEY`: Chave de API da OpenAI.
+* `ANTHROPIC_API_KEY`: Chave de API da Anthropic (Claude).
+
+#### 🤖 Variáveis Automáticas (Fornecidas pelo GitHub Actions)
+As seguintes variáveis já são passadas de forma automática pelo runner do GitHub, portanto você **não** precisa criá-las manualmente em Secrets:
+* `GITHUB_TOKEN`: Utilizada para autenticar e criar os comentários e a revisão no pull request.
+* `GITHUB_REPOSITORY`: Nome do repositório no formato `owner/repo`.
+* `GITHUB_EVENT_PATH`: Caminho dos metadados do evento disparador (PR).
+
+#### ⚙️ Parâmetros Opcionais de Customização
+* `OPENCODE_MODEL`: Define explicitamente qual modelo de linguagem o OpenCode deve utilizar (ex: `google/gemini-2.5-flash`, `openai/gpt-4o-mini`, `anthropic/claude-3-5-sonnet-20241022`).
+* `OPENCODE_API_URL`: URL base customizada se você estiver conectando a um gateway ou proxy corporativo.
+
+---
+
+### 💻 Executar o Review Agent Localmente (Modo Dry-Run)
+
+Se você quiser analisar as regras e o código do seu repositório localmente no terminal antes de enviar um Pull Request, você pode rodar a imagem Docker no modo `--dry-run`:
+
+```bash
+docker run --rm \
+  -v $PWD:/workspace \
+  -e GOOGLE_GENERATIVE_AI_API_KEY="sua_chave_gemini_aqui" \
+  -e OPENAI_API_KEY="sua_chave_openai_aqui" \
+  -e OPENCODE_MODEL="google/gemini-2.5-flash" \
+  ghcr.io/seu-usuario/review-agent:latest run --dry-run
+```
+
+* **O que acontece:** O Review Agent fará a checagem das regras locais contra o seu diff Git local do seu branch atual e imprimirá a tabela de findings estruturados diretamente na tela do seu console, sem realizar chamadas ou posts para as APIs do GitHub.
+
 ---
 
 ## 🛠️ Revisão Híbrida (Linters e Analisadores Estáticos Embutidos)
