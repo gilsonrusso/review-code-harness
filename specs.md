@@ -128,7 +128,7 @@ Gerencia o ciclo de vida e a invocação da CLI do OpenCode.
   * `extractJson(rawOutput: string): string`
   * `validate(jsonStr: string): ReviewResult`
 * **Comportamento**:
-  * Verifica se existe um arquivo `opencode.json` no workspace e, caso contrário, cria temporariamente uma configuração com permissões automáticas (`edit: allow`, `bash: allow`) para evitar prompts interativos de TTY.
+  * Verifica se existe um arquivo `opencode.json` no workspace e, caso contrário, cria temporariamente uma configuração com permissões automáticas (`edit: allow`, `bash: allow`), desativação de atualização automática (`autoupdate: false`), desativação de telemetria e regras de exclusão para o observador de arquivos (`watcher.ignore`) para evitar prompts interativos de TTY, downloads desnecessários e desperdício de CPU/memória no contêiner.
   * Executa a CLI do OpenCode (`opencode run "<instructions>"`) via `execa` com timeout definido e parâmetro `stdin: 'ignore'`.
   * Redireciona a saída de erro (`stderr`) e faz o streaming da saída padrão (`stdout`) em tempo real no console do wrapper, enquanto acumula a saída do terminal.
   * Realiza a limpeza do arquivo temporário `opencode.json` ao término (com sucesso ou erro).

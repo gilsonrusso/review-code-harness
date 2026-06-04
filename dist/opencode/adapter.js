@@ -44,6 +44,7 @@ export class OpenCodeAdapter {
                 const configExists = await fs.access(configPath).then(() => true).catch(() => false);
                 if (!configExists) {
                     await fs.writeFile(configPath, JSON.stringify({
+                        autoupdate: false,
                         permission: {
                             edit: "allow",
                             bash: "allow"
@@ -53,6 +54,13 @@ export class OpenCodeAdapter {
                         },
                         telemetry: {
                             telemetryLevel: "off"
+                        },
+                        watcher: {
+                            ignore: [
+                                "node_modules/**",
+                                "dist/**",
+                                ".git/**"
+                            ]
                         }
                     }, null, 2), 'utf-8');
                     createdTempConfig = true;
