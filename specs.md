@@ -28,9 +28,13 @@ Para guiar o desenvolvimento do **Review Agent** e facilitar a colaboração de 
 * **Decisão**: Implementação de um algoritmo determinístico de correspondência de chaves (`{}`) para extrair o objeto JSON que engloba a propriedade `"findings"`, em vez de recorrer a Regex ou cortes estáticos de texto.
 * **Motivo**: Respostas de LLMs frequentemente contêm textos explicativos, saudações ou blocos markdown (```json ... ```). O parse por balanceamento de parênteses garante a extração correta e à prova de quebras da string JSON mais externa, ignorando chaves adicionais precedentes (ex: `"summary"`).
 
-### 6. Mecanismos de Resiliência de CLI (Timeout & Retries)
-* **Decisão**: Adição de parâmetros explícitos de `timeoutSeconds` e `maxRetries` na execução da CLI do OpenCode.
-* **Motivo**: Execuções de pipelines dependentes de LLMs remotas sofrem instabilidades, congestionamentos de conexões e lentidão de rede. O suporte nativo a controle de tempo limite e retentativas garante resiliência e previne travamentos indefinidos de runners.
+### 6. Isolamento de Stdin e Streaming de Logs do Subprocesso
+* **Decisão**: A CLI do OpenCode é invocada usando `execa` com `stdin: 'ignore'`, redirecionamento de logs de diagnóstico (`stderr`) direto via pipe e streaming em tempo real do stdout (enquanto acumula os dados em buffers). Adicionalmente, caso não exista um arquivo `opencode.json` local, um arquivo temporário com permissões de auto-approve (`allow` para comandos de bash e edições de arquivo) é criado na raiz do workspace.
+* **Motivo**: Em ambientes não interativos (como pipelines de CI/CD ou containers sem TTY), a execução do OpenCode pode congelar indefinidamente se a CLI tentar solicitar confirmações ou interações do usuário. Configurar permissões automáticas e isolar o `stdin` previne travamentos e timeouts silenciosos, enquanto o streaming imediato das saídas evita logs truncados ou ausência de feedback em execuções demoradas.
+
+### 8. Tolerância a Nulidade em Campos Opcionais da LLM (Nullish Schema Resolution)
+* **Decisão**: A validação Zod de campos estruturados opcionais, como `suggestion`, é configurada para aceitar strings, `null` ou `undefined` via `.nullish().transform(val => val ?? undefined)`, mapeando as nulidades implicitamente para `undefined`.
+* **Motivo**: Modelos de linguagem (como `gemini-2.5-flash`) costumam gerar explicitamente `"suggestion": null` no JSON em vez de simplesmente omitir o campo. Permitir e normalizar valores nulos localmente no parser previne falhas catastróficas de validação mantendo a compatibilidade estrita com a tipagem TypeScript (`suggestion?: string`).
 
 ---
 
@@ -93,7 +97,7 @@ export const FindingSchema = z.object({
   line: z.number().int().nonnegative(),
   title: z.string().min(1),
   description: z.string().min(1),
-  suggestion: z.string().optional()
+  suggestion: z.string().nullish().transform(val => val ?? undefined)
 });
 
 export const ReviewResultSchema = z.object({
@@ -124,10 +128,11 @@ Gerencia o ciclo de vida e a invocação da CLI do OpenCode.
   * `extractJson(rawOutput: string): string`
   * `validate(jsonStr: string): ReviewResult`
 * **Comportamento**:
-  * Cria um arquivo temporário `.review-instructions.md` com as instruções textuais.
-  * Executa a CLI do OpenCode (`opencode run --instructions .review-instructions.md`) com timeout configurado.
-  * Implementa retentativas exponenciais ou lineares espaçadas em 1s caso a CLI falhe ou estoure o tempo limite.
-  * Realiza a limpeza do arquivo temporário.
+  * Verifica se existe um arquivo `opencode.json` no workspace e, caso contrário, cria temporariamente uma configuração com permissões automáticas (`edit: allow`, `bash: allow`) para evitar prompts interativos de TTY.
+  * Executa a CLI do OpenCode (`opencode run "<instructions>"`) via `execa` com timeout definido e parâmetro `stdin: 'ignore'`.
+  * Redireciona a saída de erro (`stderr`) e faz o streaming da saída padrão (`stdout`) em tempo real no console do wrapper, enquanto acumula a saída do terminal.
+  * Realiza a limpeza do arquivo temporário `opencode.json` ao término (com sucesso ou erro).
+  * Implementa novas tentativas com intervalo de 1s em caso de estouro de timeout ou falha na invocação.
   * Utiliza algoritmo de brace-matching para extrair o JSON e faz a validação estrutural via Zod.
 
 ### 3.3. `DiffCoordinateValidator` (`src/core/diff-validator.ts`)

@@ -17,7 +17,7 @@ export declare class OpenCodeAdapter {
      */
     constructor(workspaceRoot?: string);
     /**
-     * Invoca a CLI do OpenCode localmente gravando um arquivo de instruções markdown temporário.
+     * Invoca a CLI do OpenCode localmente passando as instruções diretamente como argumento.
      * Executa a CLI com timeout definido e realiza novas tentativas automáticas se falhar.
      *
      * @param instructions - O texto bruto de instruções que guiará a IA nas revisões.

@@ -11,9 +11,11 @@ Para que o revisor funcione corretamente em ambientes privados e publique coment
 | Nome do Secret | Tipo | Descrição |
 | :--- | :---: | :--- |
 | `GITHUB_TOKEN` | Automático | Gerado automaticamente pelo GitHub, usado para autenticação na API do GitHub para criar comentários no PR. |
-| `LLM_API_KEY` | Obrigatório | A chave de API do provedor de LLM que o OpenCode utilizará (ex: OpenAI API Key, Anthropic Key, Gemini Key). |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Condicional | Chave de API para o Google Gemini (caso use modelos `google/*`). |
+| `OPENAI_API_KEY` | Condicional | Chave de API para a OpenAI (caso use modelos `openai/*` ou gateways compatíveis). |
+| `ANTHROPIC_API_KEY` | Condicional | Chave de API para a Anthropic (caso use modelos `anthropic/*`). |
 | `OPENCODE_API_URL` | Opcional | URL do endpoint personalizado do modelo ou gateway da LLM (caso você utilize um proxy local ou servidor self-hosted). |
-| `OPENCODE_MODEL` | Opcional | Identificador do modelo de LLM que o OpenCode executará (ex: `gpt-4o`, `claude-3-5-sonnet`, etc.). |
+| `OPENCODE_MODEL` | Opcional | Identificador do modelo de LLM que o OpenCode executará (ex: `google/gemini-2.5-flash`, `gpt-4o`, `claude-3-5-sonnet`, etc.). |
 
 ---
 
@@ -48,7 +50,9 @@ jobs:
             -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
             -e GITHUB_EVENT_PATH=/workspace/${{ github.event_path }} \
             -e GITHUB_REPOSITORY=${{ github.repository }} \
-            -e LLM_API_KEY=${{ secrets.LLM_API_KEY }} \
+            -e GOOGLE_GENERATIVE_AI_API_KEY=${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }} \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            -e ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }} \
             -e OPENCODE_API_URL=${{ secrets.OPENCODE_API_URL }} \
             -e OPENCODE_MODEL=${{ secrets.OPENCODE_MODEL }} \
             ghcr.io/seu-usuario/review-agent:latest
@@ -59,5 +63,5 @@ jobs:
 ## 3. Funcionamento Interno no CI/CD
 1. O runner do GitHub faz o checkout de toda a estrutura do projeto.
 2. O contêiner Docker do **Review Agent** é montado expondo a pasta de trabalho atual como volume no diretório interno `/workspace`.
-3. As variáveis e chaves de API (`LLM_API_KEY`, etc.) são injetadas no contêiner para que o OpenCode consiga se comunicar com a LLM externa configurada.
+3. As variáveis e chaves de API (`GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY`, etc.) são injetadas no contêiner para que o OpenCode consiga se comunicar com a LLM externa configurada.
 4. O comentário de review consolidado é gerado e postado diretamente no Pull Request que disparou a Action.

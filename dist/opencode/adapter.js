@@ -22,7 +22,7 @@ export class OpenCodeAdapter {
         this.workspaceRoot = workspaceRoot;
     }
     /**
-     * Invoca a CLI do OpenCode localmente gravando um arquivo de instruções markdown temporário.
+     * Invoca a CLI do OpenCode localmente passando as instruções diretamente como argumento.
      * Executa a CLI com timeout definido e realiza novas tentativas automáticas se falhar.
      *
      * @param instructions - O texto bruto de instruções que guiará a IA nas revisões.
@@ -32,23 +32,51 @@ export class OpenCodeAdapter {
      * @throws Lança erro caso todas as tentativas falhem.
      */
     async run(instructions, timeoutSeconds, maxRetries) {
-        const tempFile = path.join(this.workspaceRoot, '.review-instructions.md');
+        const configPath = path.join(this.workspaceRoot, 'opencode.json');
         let attempt = 0;
         let lastError = null;
+        let createdTempConfig = false;
         while (attempt <= maxRetries) {
             attempt++;
             try {
-                // Grava as instruções temporariamente no workspace para o OpenCode ler
-                await fs.writeFile(tempFile, instructions, 'utf-8');
+                // Se não existir um arquivo opencode.json na raiz, cria um temporário com permissões auto-allow.
+                // Isso evita que a CLI do OpenCode pare para pedir confirmação do usuário (stdin) em execuções automatizadas/CI.
+                const configExists = await fs.access(configPath).then(() => true).catch(() => false);
+                if (!configExists) {
+                    await fs.writeFile(configPath, JSON.stringify({
+                        permission: {
+                            edit: "allow",
+                            bash: "allow"
+                        }
+                    }, null, 2), 'utf-8');
+                    createdTempConfig = true;
+                }
                 const opencodeBin = process.env.OPENCODE_BIN || 'opencode';
-                const args = ['run', '--instructions', tempFile];
-                console.info(`Invocando a CLI (Tentativa ${attempt}/${maxRetries + 1}): ${opencodeBin} ${args.join(' ')}`);
-                // Executa o subprocesso usando a biblioteca execa com timeout configurado
-                const { stdout } = await execa(opencodeBin, args, {
+                const args = ['run', instructions];
+                // Repassa o modelo especificado nas variáveis de ambiente de forma literal
+                const model = process.env.OPENCODE_MODEL;
+                if (model) {
+                    args.push('-m', model);
+                }
+                const modelDisplay = model ? ` --model ${model}` : '';
+                console.info(`Invocando a CLI (Tentativa ${attempt}/${maxRetries + 1}): ${opencodeBin} run "<instructions>"${modelDisplay}`);
+                // Executa o subprocesso usando a biblioteca execa com timeout configurado e stdin ignorado
+                const subprocess = execa(opencodeBin, args, {
                     timeout: timeoutSeconds * 1000,
-                    cwd: this.workspaceRoot
+                    cwd: this.workspaceRoot,
+                    stdin: 'ignore'
                 });
-                return stdout;
+                // Repassa os logs de diagnóstico e progresso da IA em tempo real para o console
+                subprocess.stderr?.pipe(process.stderr);
+                // Repassa a saída padrão do OpenCode em tempo real para o console e acumula o texto para parsing do JSON
+                let stdoutAccumulated = '';
+                subprocess.stdout?.on('data', (chunk) => {
+                    const chunkStr = chunk.toString();
+                    stdoutAccumulated += chunkStr;
+                    process.stdout.write(chunkStr);
+                });
+                const { stdout } = await subprocess;
+                return stdoutAccumulated || stdout;
             }
             catch (error) {
                 lastError = error;
@@ -59,10 +87,13 @@ export class OpenCodeAdapter {
                 }
             }
             finally {
-                // Garante a remoção do arquivo temporário de instruções em qualquer cenário
-                await fs.rm(tempFile, { force: true }).catch(err => {
-                    console.warn(`Aviso: Não foi possível deletar o arquivo temporário ${tempFile}: ${err.message}`);
-                });
+                // Remove o arquivo de configuração temporário, se foi criado pelo wrapper
+                if (createdTempConfig) {
+                    await fs.rm(configPath, { force: true }).catch(err => {
+                        console.warn(`Aviso: Não foi possível deletar o arquivo temporário ${configPath}: ${err.message}`);
+                    });
+                    createdTempConfig = false;
+                }
             }
         }
         throw new Error(`Falha na execução do OpenCode após ${attempt} tentativas. Último erro: ${lastError?.message}`);

@@ -11,7 +11,7 @@ export declare const FindingSchema: z.ZodObject<{
     line: z.ZodNumber;
     title: z.ZodString;
     description: z.ZodString;
-    suggestion: z.ZodOptional<z.ZodString>;
+    suggestion: z.ZodEffects<z.ZodOptional<z.ZodNullable<z.ZodString>>, string | undefined, string | null | undefined>;
 }, "strip", z.ZodTypeAny, {
     severity: "critical" | "high" | "medium" | "low" | "info";
     file: string;
@@ -25,7 +25,7 @@ export declare const FindingSchema: z.ZodObject<{
     line: number;
     title: string;
     description: string;
-    suggestion?: string | undefined;
+    suggestion?: string | null | undefined;
 }>;
 /**
  * Esquema de validação Zod para a resposta estruturada contendo findings.
@@ -39,7 +39,7 @@ export declare const ReviewResultSchema: z.ZodObject<{
         line: z.ZodNumber;
         title: z.ZodString;
         description: z.ZodString;
-        suggestion: z.ZodOptional<z.ZodString>;
+        suggestion: z.ZodEffects<z.ZodOptional<z.ZodNullable<z.ZodString>>, string | undefined, string | null | undefined>;
     }, "strip", z.ZodTypeAny, {
         severity: "critical" | "high" | "medium" | "low" | "info";
         file: string;
@@ -53,7 +53,7 @@ export declare const ReviewResultSchema: z.ZodObject<{
         line: number;
         title: string;
         description: string;
-        suggestion?: string | undefined;
+        suggestion?: string | null | undefined;
     }>, "many">;
     summary: z.ZodOptional<z.ZodObject<{
         critical: z.ZodDefault<z.ZodNumber>;
@@ -97,7 +97,7 @@ export declare const ReviewResultSchema: z.ZodObject<{
         line: number;
         title: string;
         description: string;
-        suggestion?: string | undefined;
+        suggestion?: string | null | undefined;
     }[];
     summary?: {
         critical?: number | undefined;

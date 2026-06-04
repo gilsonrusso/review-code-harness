@@ -14,26 +14,22 @@ describe('OpenCodeAdapter', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(execa).mockResolvedValue({ stdout: '{"findings": []}' } as any);
     adapter = new OpenCodeAdapter();
   });
 
-  it('deve criar arquivo temporário, executar execa com timeout e apagar o arquivo', async () => {
+  it('deve invocar execa passando as instruções diretamente como argumento e com timeout correto', async () => {
     const mockInstructions = 'Instruções de teste';
-    const tempFile = path.join(process.cwd(), '.review-instructions.md');
 
     const result = await adapter.run(mockInstructions, 300, 3);
 
     // Verifica que o execa foi chamado com os argumentos corretos e timeout configurado
-    expect(execa).toHaveBeenCalledWith('opencode', ['run', '--instructions', tempFile], {
+    expect(execa).toHaveBeenCalledWith('opencode', ['run', mockInstructions], expect.objectContaining({
       timeout: 300000,
       cwd: process.cwd()
-    });
+    }));
 
     expect(result).toBe('{"findings": []}');
-
-    // Verifica que o arquivo temporário foi removido no final
-    const fileExists = await fs.access(tempFile).then(() => true).catch(() => false);
-    expect(fileExists).toBe(false);
   });
 
   it('deve tentar executar novamente em caso de falha (mecanismo de retry)', async () => {
@@ -59,6 +55,50 @@ describe('OpenCodeAdapter', () => {
       'Falha na execução do OpenCode após 3 tentativas'
     );
     expect(execa).toHaveBeenCalledTimes(3);
+  });
+
+  it('deve repassar a flag -m com o modelo de forma literal quando OPENCODE_MODEL estiver configurado', async () => {
+    const originalModel = process.env.OPENCODE_MODEL;
+    process.env.OPENCODE_MODEL = 'provider-custom/modelo-teste';
+
+    try {
+      await adapter.run('instruções', 300, 0);
+
+      expect(execa).toHaveBeenCalledWith('opencode', ['run', 'instruções', '-m', 'provider-custom/modelo-teste'], expect.any(Object));
+    } finally {
+      process.env.OPENCODE_MODEL = originalModel;
+    }
+  });
+
+  it('deve criar opencode.json temporário se ele não existir e deletá-lo no final', async () => {
+    const configPath = path.join(process.cwd(), 'opencode.json');
+    
+    // Garante que o arquivo não existe antes de começar
+    await fs.rm(configPath, { force: true });
+
+    await adapter.run('instruções', 300, 0);
+
+    // O arquivo deve ter sido deletado após a execução
+    const exists = await fs.access(configPath).then(() => true).catch(() => false);
+    expect(exists).toBe(false);
+  });
+
+  it('não deve deletar opencode.json se ele já existia antes da execução', async () => {
+    const configPath = path.join(process.cwd(), 'opencode.json');
+    
+    // Cria um arquivo pré-existente
+    await fs.writeFile(configPath, '{"permission": {}}', 'utf-8');
+
+    try {
+      await adapter.run('instruções', 300, 0);
+
+      // O arquivo deve continuar existindo no final
+      const exists = await fs.access(configPath).then(() => true).catch(() => false);
+      expect(exists).toBe(true);
+    } finally {
+      // Limpa o arquivo criado
+      await fs.rm(configPath, { force: true });
+    }
   });
 
   it('deve extrair JSON corretamente da string bruta', () => {

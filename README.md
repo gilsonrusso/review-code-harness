@@ -215,8 +215,10 @@ jobs:
             -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
             -e GITHUB_REPOSITORY=${{ github.repository }} \
             -e GITHUB_EVENT_PATH=/workspace/${{ github.event_path }} \
+            -e GOOGLE_GENERATIVE_AI_API_KEY=${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }} \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            -e ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }} \
             -e OPENCODE_API_URL=${{ secrets.OPENCODE_API_URL }} \
-            -e LLM_API_KEY=${{ secrets.LLM_API_KEY }} \
             -e OPENCODE_MODEL=${{ secrets.OPENCODE_MODEL }} \
             ghcr.io/seu-usuario/review-agent:latest
 ```

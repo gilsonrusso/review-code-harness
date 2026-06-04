@@ -10,7 +10,7 @@ export const FindingSchema = z.object({
     line: z.number().int().nonnegative(),
     title: z.string().min(1),
     description: z.string().min(1),
-    suggestion: z.string().optional()
+    suggestion: z.string().nullish().transform(val => val ?? undefined)
 });
 /**
  * Esquema de validação Zod para a resposta estruturada contendo findings.

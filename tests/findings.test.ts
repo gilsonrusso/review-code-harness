@@ -40,6 +40,25 @@ describe('FindingsParser', () => {
     expect(parsed.findings[0].suggestion).toBeUndefined();
   });
 
+  it('deve parsear JSON com suggestion igual a null (mapeando para undefined)', () => {
+    const rawInput = `{
+      "findings": [
+        {
+          "severity": "medium",
+          "file": "src/auth.ts",
+          "line": 50,
+          "title": "Rule Violation",
+          "description": "Violation details",
+          "suggestion": null
+        }
+      ]
+    }`;
+    const parsed = parseFindings(rawInput);
+    expect(parsed.findings.length).toBe(1);
+    expect(parsed.findings[0].file).toBe('src/auth.ts');
+    expect(parsed.findings[0].suggestion).toBeUndefined();
+  });
+
   it('deve parsear JSON contendo summary opcional', () => {
     const rawInput = `{
       "summary": {
