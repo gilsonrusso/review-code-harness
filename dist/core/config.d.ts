@@ -4,7 +4,6 @@ import { z } from 'zod';
  *
  * Contém as seguintes chaves de configuração:
  * - `version`: Versão da estrutura de configuração (padrão: 1).
- * - `skills.path`: Pasta onde se encontram os arquivos markdown contendo regras de revisão (padrão: '.skills').
  * - `review.max_findings`: Limite máximo de ocorrências que o publicador aceitará reportar no PR (padrão: 20).
  * - `review.timeoutSeconds`: Tempo limite em segundos que o wrapper aguardará a CLI do OpenCode responder antes de abortar (padrão: 300).
  * - `review.maxRetries`: Quantidade de retentativas automáticas em caso de falha ou timeout da CLI (padrão: 3).
@@ -12,13 +11,6 @@ import { z } from 'zod';
  */
 export declare const ConfigSchema: z.ZodObject<{
     version: z.ZodDefault<z.ZodNumber>;
-    skills: z.ZodDefault<z.ZodObject<{
-        path: z.ZodDefault<z.ZodString>;
-    }, "strip", z.ZodTypeAny, {
-        path: string;
-    }, {
-        path?: string | undefined;
-    }>>;
     review: z.ZodDefault<z.ZodObject<{
         max_findings: z.ZodDefault<z.ZodNumber>;
         timeoutSeconds: z.ZodDefault<z.ZodNumber>;
@@ -41,9 +33,6 @@ export declare const ConfigSchema: z.ZodObject<{
     }>>;
 }, "strip", z.ZodTypeAny, {
     version: number;
-    skills: {
-        path: string;
-    };
     review: {
         max_findings: number;
         timeoutSeconds: number;
@@ -54,9 +43,6 @@ export declare const ConfigSchema: z.ZodObject<{
     };
 }, {
     version?: number | undefined;
-    skills?: {
-        path?: string | undefined;
-    } | undefined;
     review?: {
         max_findings?: number | undefined;
         timeoutSeconds?: number | undefined;

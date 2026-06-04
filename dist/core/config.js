@@ -7,7 +7,6 @@ import { z } from 'zod';
  *
  * Contém as seguintes chaves de configuração:
  * - `version`: Versão da estrutura de configuração (padrão: 1).
- * - `skills.path`: Pasta onde se encontram os arquivos markdown contendo regras de revisão (padrão: '.skills').
  * - `review.max_findings`: Limite máximo de ocorrências que o publicador aceitará reportar no PR (padrão: 20).
  * - `review.timeoutSeconds`: Tempo limite em segundos que o wrapper aguardará a CLI do OpenCode responder antes de abortar (padrão: 300).
  * - `review.maxRetries`: Quantidade de retentativas automáticas em caso de falha ou timeout da CLI (padrão: 3).
@@ -15,17 +14,14 @@ import { z } from 'zod';
  */
 export const ConfigSchema = z.object({
     version: z.number().default(1),
-    skills: z.object({
-        path: z.string().default('.skills')
-    }).default({ path: '.skills' }),
     review: z.object({
         max_findings: z.number().int().positive().default(20),
         timeoutSeconds: z.number().int().positive().default(300),
         maxRetries: z.number().int().nonnegative().default(3)
     }).default({ max_findings: 20, timeoutSeconds: 300, maxRetries: 3 }),
     output: z.object({
-        mode: z.enum(['summary', 'inline', 'both']).default('summary')
-    }).default({ mode: 'summary' })
+        mode: z.enum(['summary', 'inline', 'both']).default('both')
+    }).default({ mode: 'both' })
 });
 /**
  * Carrega, analisa e valida o arquivo de configuração (.review-agent.yml) localizado na raiz do projeto.
@@ -42,6 +38,19 @@ export async function loadConfig(configPath) {
             .then(() => true)
             .catch(() => false);
         if (!fileExists) {
+            const defaultYml = `version: 1
+
+review:
+  max_findings: 20
+  timeoutSeconds: 300
+  maxRetries: 3
+
+output:
+  mode: both
+`;
+            await fs.writeFile(targetPath, defaultYml, 'utf-8').catch((err) => {
+                console.warn(`Aviso: Não foi possível criar o arquivo de configuração padrão em ${targetPath}: ${err.message}`);
+            });
             return ConfigSchema.parse({});
         }
         const fileContent = await fs.readFile(targetPath, 'utf-8');

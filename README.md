@@ -4,7 +4,7 @@
 
 O **Review Agent** é uma ferramenta universal para revisão automática de código em Pull Requests (PRs). Ele atua como um **orquestrador leve** que integra o ambiente de CI/CD (GitHub Actions) com a engine local de IA **OpenCode**.
 
-Toda a inteligência de revisão, análise de contexto e regras são definidas através de **Skills** (arquivos Markdown na pasta `.skills/`) e configuradas por um arquivo YAML na raiz do seu projeto.
+Toda a inteligência de revisão, análise de contexto e regras são definidas através de **Skills** nativas do OpenCode (arquivos Markdown na pasta `.opencode/skills/<nome>/SKILL.md` com YAML frontmatter) e configuradas por um arquivo YAML na raiz do seu projeto.
 
 ---
 
@@ -91,17 +91,13 @@ O arquivo de configuração deve ser mantido na raiz do repositório a ser revis
 ```yaml
 version: 1
 
-skills:
-  path: .skills # Pasta contendo os arquivos Markdown com regras de negócios
-
 review:
   max_findings: 20 # Limite máximo de ocorrências a reportar no PR
   timeoutSeconds: 300 # Tempo limite (em segundos) de execução por tentativa da IA
   maxRetries: 3 # Tentativas automáticas em caso de falha ou timeout do OpenCode
 
 output:
-  mode:
-    both # Modos aceitos:
+  mode: both # Modos aceitos:
     # - 'summary': publica apenas o comentário de resumo geral
     # - 'inline': publica apenas comentários nas linhas afetadas
     # - 'both': publica o resumo e os comentários inline juntos
@@ -143,17 +139,30 @@ Quando um desenvolvedor abre ou atualiza um Pull Request no seu repositório alv
 
 ## 🛠️ Como Configurar em Qualquer Repositório Alvo
 
-Para ativar o Review Agent no seu repositório (FastAPI, React, Spring, etc.), você **não precisa rodar comandos de compilação ou instalar Node.js localmente**. Basta criar manualmente os arquivos de configuração abaixo no seu repositório.
+Para ativar o Review Agent no seu repositório (FastAPI, React, Spring, etc.), você possui duas alternativas simples que dispensam a compilação ou instalação do Node.js localmente:
 
-### Passo 1: Criar o arquivo de configurações `.review-agent.yml`
+### Opção A: Inicialização Automática via Docker (Recomendado)
+
+Você pode usar a própria imagem Docker oficial para criar automaticamente a árvore de arquivos e diretórios padrão no seu workspace atual:
+
+```bash
+docker run --rm -v $PWD:/workspace ghcr.io/seu-usuario/review-agent:latest init
+```
+
+Esse comando criará o arquivo `.review-agent.yml` e as pastas de exemplo sob `.opencode/skills/` contendo os templates de React e FastAPI.
+
+---
+
+### Opção B: Configuração Manual
+
+Caso prefira configurar manualmente, siga os passos abaixo:
+
+#### Passo 1: Criar o arquivo de configurações `.review-agent.yml`
 
 Crie este arquivo na **raiz do seu repositório**:
 
 ```yaml
 version: 1
-
-skills:
-  path: .skills # Diretório contendo as regras de negócio
 
 review:
   max_findings: 20 # Limite de descobertas reportadas no PR
@@ -164,28 +173,40 @@ output:
   mode: both # 'summary' (apenas resumo), 'inline' (apenas inline) ou 'both' (ambos)
 ```
 
-### Passo 2: Criar a pasta `.skills/` e seus arquivos de regras
+### Passo 2: Criar a estrutura de diretórios para Skills nativas do OpenCode
 
-Crie a pasta `.skills/` na raiz do seu repositório e adicione arquivos Markdown contendo as diretrizes que a IA deve validar.
+Crie as habilidades (skills) que a engine nativa do OpenCode irá descobrir e aplicar automaticamente. Cada skill deve ficar em uma subpasta sob `.opencode/skills/<nome-da-skill>/SKILL.md` e iniciar obrigatoriamente com um cabeçalho YAML frontmatter.
 
-**Exemplo: `.skills/architecture.md`**
+**Exemplo: `.opencode/skills/frontend-react/SKILL.md`**
 
 ```markdown
-# Regras Arquiteturais
+---
+name: frontend-react
+description: Regras e padrões para desenvolvimento Frontend com React, TypeScript, assistant-ui e LangChain.
+---
+# Frontend React + TypeScript & Assistant-UI Skill
 
-- Funções não devem possuir mais do que 50 linhas de código.
-- Arquivos na pasta `controllers` não devem fazer consultas SQL diretas; use a camada de `services` ou ORM.
-- Evite acoplamentos desnecessários e favoreça injeção de dependências.
+## Role
+
+Você é um desenvolvedor Frontend especialista em React (v19+), TypeScript, Vite e integração de interfaces de IA (chat) com a biblioteca **assistant-ui** e **LangChain**.
+
+... (regras de React e assistant-ui)
 ```
 
-**Exemplo: `.skills/security.md`**
+**Exemplo: `.opencode/skills/backend-fastapi/SKILL.md`**
 
 ```markdown
-# Regras de Segurança
+---
+name: backend-fastapi
+description: Regras e padrões para desenvolvimento Backend com FastAPI, LangChain, LangGraph e Pydantic.
+---
+# Backend FastAPI & LangChain Skill
 
-- Nunca salve chaves de API, senhas ou tokens expostos em variáveis hardcoded.
-- Toda query SQL dinâmica ou vinda de inputs do usuário deve utilizar parâmetros para evitar SQL Injection.
-- Sanitize todos os dados recebidos externamente antes de processá-los.
+## Role
+
+Você é um desenvolvedor Backend especialista em FastAPI, LangChain e LangGraph.
+
+... (regras de FastAPI e LangGraph)
 ```
 
 ### Passo 3: Criar o arquivo do workflow do GitHub Actions
@@ -222,6 +243,17 @@ jobs:
             -e OPENCODE_MODEL=${{ secrets.OPENCODE_MODEL }} \
             ghcr.io/seu-usuario/review-agent:latest
 ```
+
+---
+
+## 🛠️ Revisão Híbrida (Linters e Analisadores Estáticos Embutidos)
+
+A imagem Docker oficial do **Review Agent** vem pré-configurada com as principais ferramentas de análise estática de mercado para que a IA possa utilizá-las na revisão:
+* **Node.js, React & TypeScript**: `eslint` e `typescript` (disponibilizando o compilador `tsc` para checagem de tipos).
+* **Python**: `python3`, `pip3`, `venv`, `ruff` (linter/formatter ultra rápido em Rust) e `uv` (gerenciador de dependências de alto desempenho).
+
+### Como a IA executa os Linters?
+Como o OpenCode possui acesso de leitura e execução de comandos Git/Bash locais (com as permissões seguras do sandbox configuradas), a IA pode optar por rodar comandos de validação física como `eslint` ou `ruff check` em arquivos do diff. Isso ajuda a evitar falsos positivos de sintaxe ou tipagem no relatório e permite que ela gere sugestões extremamente precisas baseadas em falhas estáticas reais.
 
 ---
 

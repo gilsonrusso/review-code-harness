@@ -1,42 +1,44 @@
 # Plano de Evolução do Review Agent 🚀
 
-Este documento propõe um plano de desenvolvimento e maturidade para a nossa ferramenta **Review Agent** com base nos recursos recém-mapeados da documentação oficial do OpenCode.
+Este documento consolida o plano de desenvolvimento e maturidade do **Review Agent** com base nos recursos do OpenCode e nas escolhas arquiteturais efetuadas.
 
 ---
 
 ## 🗺️ Roadmap de Evolução Técnica
 
-### Fase 1: Sandboxing e Segurança Operacional (Curto Prazo)
+### Fase 1: Sandboxing e Segurança Operacional (Implementado)
 *   **Objetivo**: Garantir que a execução do contêiner em esteiras de CI/CD (Pull Requests) seja 100% segura contra modificações acidentais ou maliciosas no código-fonte do repositório (segurança de escrita).
-*   **Ações**:
-    *   Configurar o `opencode.json` temporário gerado pelo `OpenCodeAdapter` para conter desativação de ferramentas de escrita:
+*   **Ações Concluídas**:
+    *   O `OpenCodeAdapter` agora **sempre** intercepta a execução da CLI e força um arquivo `opencode.json` seguro e isolado, contendo:
         ```json
         {
+          "share": "disabled",
           "tools": {
             "write": false,
             "edit": false
           }
         }
         ```
-    *   Validar se o OpenCode continua funcionando perfeitamente em modo de leitura (Read-Only) para a geração de relatórios estruturados.
+    *   Caso o usuário possua um arquivo `opencode.json` customizado na raiz do projeto, o Review Agent realiza um backup temporário em memória RAM, sobrescreve o arquivo com a configuração restritiva e restaura o arquivo original intacto após a conclusão da análise (no bloco `finally`).
 
 ---
 
-### Fase 2: Transição para Skills Nativas do OpenCode (Médio Prazo)
-*   **Objetivo**: Substituir o comportamento de concatenar manualmente regras de negócio no prompt principal (PromptBuilder) pelo sistema nativo de Skills sob demanda do OpenCode.
-*   **Ações**:
-    *   No início do fluxo, em vez de carregar os arquivos da pasta `.skills/` e injetá-los textualmente nas instruções, o Review Agent copiará as regras para o padrão de descoberta do OpenCode: `.opencode/skills/<nome-da-regra>/SKILL.md`.
-    *   O cabeçalho (frontmatter YAML) será gerado automaticamente com o nome da skill e a descrição.
-    *   **Benefício**: O OpenCode só lerá as skills de fato úteis para o arquivo/diff sendo analisado através de sua ferramenta interna `skill`, economizando significativamente o uso e custo de tokens de contexto do modelo.
+### Fase 2: Transição para Habilidades Nativas do OpenCode (Implementado)
+*   **Objetivo**: Substituir o comportamento de concatenar manualmente regras de negócio no prompt pelo sistema nativo de Habilidades (Skills) sob demanda do OpenCode.
+*   **Ações Concluídas**:
+    *   Eliminação completa do diretório legada `.skills/` e de qualquer fluxo de concatenação manual no wrapper.
+    *   A CLI (`review-agent init`) agora inicializa as regras padrões em formato nativo: `.opencode/skills/frontend-react/SKILL.md` e `.opencode/skills/backend-fastapi/SKILL.md`, contendo cabeçalho frontmatter YAML.
+    *   O prompt principal foi atualizado para instruir o OpenCode a usar a tool nativa `skill` para mapear e consumir as Habilidades úteis sob demanda, economizando tokens e otimizando o contexto.
 
 ---
 
-### Fase 3: Revisão Híbrida (Linter Local + IA) (Médio Prazo)
+### Fase 3: Revisão Híbrida (Linter Local + IA) (Pré-configurado / Em andamento)
 *   **Objetivo**: Cruzar análises de analisadores estáticos tradicionais (Linters/Compiladores) com o poder explicativo da IA.
-*   **Ações**:
-    *   Criar ferramentas customizadas locais (na pasta temporária `.opencode/tools/`) para invocar analisadores estáticos locais no repositório (ex: `eslint`, `pip-audit`, ou `tsc`).
-    *   Permitir que a LLM do OpenCode execute essas ferramentas locais, capture o output dos erros estáticos reais e gere sugestões inteligentes baseadas nessas falhas físicas.
-    *   **Benefício**: Evita que a IA aponte falsos positivos de tipagem ou sintaxe, focando o relatório em correções tangíveis apontadas pelo próprio linter do projeto.
+*   **Ações Concluídas**:
+    *   A imagem Docker final do Review Agent foi enriquecida com analisadores estáticos prontos para uso:
+        *   **Node.js / React / TypeScript**: `eslint` e `typescript` (`tsc` global).
+        *   **Python**: `python3`, `pip3`, `venv`, `ruff` (linter/formatter ultra rápido em Rust) e `uv` (gerenciador de dependências de alto desempenho).
+    *   **Próximos Passos**: Instruir a IA através de prompts ou custom tools na pasta `.opencode/tools/` a invocar esses linters locais para validar erros sintáticos ou de tipos reais antes de gerar sugestões estruturadas.
 
 ---
 
@@ -48,7 +50,7 @@ Este documento propõe um plano de desenvolvimento e maturidade para a nossa fer
 
 ---
 
-## 💬 Tópicos para Discussão
-1. **Sandboxing**: Devemos aplicar a limitação de ferramentas de escrita (`write: false`) imediatamente como padrão no Review Agent?
-2. **Skills**: A estrutura de pastas `.skills/*.md` atual é mais amigável ao usuário do que criar diretórios `.opencode/skills/name/SKILL.md`. Faz sentido mantermos a configuração simples e o wrapper converter os arquivos sob demanda antes de chamar o OpenCode?
-3. **Revisão Híbrida**: Quais ferramentas estáticas (linters) seriam mais valiosas para embutir na imagem de contêiner inicial do Review Agent?
+## 💬 Tópicos Concluídos de Discussão
+1. **Sandboxing**: Limitação aplicada por padrão e de forma inviolável (substituindo qualquer `opencode.json` temporariamente e restaurando em seguida).
+2. **Skills**: Mudança definitiva para a estrutura nativa `.opencode/skills/<name>/SKILL.md`. O processo de conversão manual foi eliminado.
+3. **Revisão Híbrida**: Linters e gerenciadores (`eslint`, `typescript`, `ruff`, `uv`) incorporados à imagem básica de execução do Review Agent.

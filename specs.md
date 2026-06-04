@@ -45,9 +45,6 @@ O comportamento do Review Agent é regido pelo arquivo `.review-agent.yml` local
 ```yaml
 version: 1                    # Versão da configuração (obrigatório: 1)
 
-skills:
-  path: .skills               # Pasta contendo arquivos markdown de regras de revisão. Padrão: .skills
-
 review:
   max_findings: 20            # Limite máximo de ocorrências a reportar no PR. Padrão: 20
   timeoutSeconds: 300         # Tempo limite (segundos) por tentativa do OpenCode. Padrão: 300
@@ -118,8 +115,8 @@ export const ReviewResultSchema = z.object({
 
 ### 3.1. `PromptBuilder` (`src/core/prompt.ts`)
 Gera o texto de instrução estruturado enviado como input para a engine do OpenCode.
-* **Assinatura**: `function buildInstructions(skillsPath: string): string`
-* **Comportamento**: Retorna uma instrução extremamente restritiva contendo a localização da pasta de skills, exigindo o retorno exclusivamente em JSON de findings e vetando explicações adicionais fora do bloco JSON.
+* **Assinatura**: `function buildInstructions(): string`
+* **Comportamento**: Retorna uma instrução extremamente restritiva exigindo que a IA consulte as habilidades registradas no projeto utilizando a ferramenta nativa `skill`, retornando os achados exclusivamente no formato JSON de findings e vetando qualquer explicação adicional.
 
 ### 3.2. `OpenCodeAdapter` (`src/opencode/adapter.ts`)
 Gerencia o ciclo de vida e a invocação da CLI do OpenCode.
@@ -128,10 +125,10 @@ Gerencia o ciclo de vida e a invocação da CLI do OpenCode.
   * `extractJson(rawOutput: string): string`
   * `validate(jsonStr: string): ReviewResult`
 * **Comportamento**:
-  * Verifica se existe um arquivo `opencode.json` no workspace e, caso contrário, cria temporariamente uma configuração com permissões automáticas (`edit: allow`, `bash: allow`), desativação de atualização automática (`autoupdate: false`), desativação de telemetria e regras de exclusão para o observador de arquivos (`watcher.ignore`) para evitar prompts interativos de TTY, downloads desnecessários e desperdício de CPU/memória no contêiner.
+  * Sempre ignora o arquivo `opencode.json` existente na raiz do projeto (fazendo backup de seu conteúdo em memória) e o sobrescreve temporariamente com a nossa configuração padrão e restritiva de sandbox (`tools.write: false`, `tools.edit: false`, `share: "disabled"`, desativação de telemetria e regras de exclusão no `watcher.ignore`) para evitar prompts interativos de TTY e garantir isolamento sanitário total contra modificações acidentais de arquivos no repositório.
   * Executa a CLI do OpenCode (`opencode run "<instructions>"`) via `execa` com timeout definido e parâmetro `stdin: 'ignore'`.
   * Redireciona a saída de erro (`stderr`) e faz o streaming da saída padrão (`stdout`) em tempo real no console do wrapper, enquanto acumula a saída do terminal.
-  * Realiza a limpeza do arquivo temporário `opencode.json` ao término (com sucesso ou erro).
+  * Restaura o conteúdo original de `opencode.json` (ou o remove caso não existisse previamente) no bloco `finally` ao término da execução.
   * Implementa novas tentativas com intervalo de 1s em caso de estouro de timeout ou falha na invocação.
   * Utiliza algoritmo de brace-matching para extrair o JSON e faz a validação estrutural via Zod.
 

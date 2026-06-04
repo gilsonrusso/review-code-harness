@@ -83,20 +83,30 @@ describe('OpenCodeAdapter', () => {
     expect(exists).toBe(false);
   });
 
-  it('não deve deletar opencode.json se ele já existia antes da execução', async () => {
+  it('deve sobrescrever opencode.json pré-existente com configuração segura durante a execução e restaurá-lo no final', async () => {
     const configPath = path.join(process.cwd(), 'opencode.json');
-    
-    // Cria um arquivo pré-existente
-    await fs.writeFile(configPath, '{"permission": {}}', 'utf-8');
+    const originalContent = '{"permission": {"custom": "value"}}';
+    await fs.writeFile(configPath, originalContent, 'utf-8');
+
+    // Quando o execa for chamado, verificamos se o arquivo contém as configurações estritas de sandboxing.
+    vi.mocked(execa).mockImplementation(async () => {
+      const tempContent = await fs.readFile(configPath, 'utf-8');
+      const parsed = JSON.parse(tempContent);
+      expect(parsed.tools.write).toBe(false);
+      expect(parsed.tools.edit).toBe(false);
+      expect(parsed.share).toBe('disabled');
+      return { stdout: '{"findings": []}' } as any;
+    });
 
     try {
       await adapter.run('instruções', 300, 0);
 
-      // O arquivo deve continuar existindo no final
+      // O arquivo deve continuar existindo no final com seu conteúdo original restaurado
       const exists = await fs.access(configPath).then(() => true).catch(() => false);
       expect(exists).toBe(true);
+      const finalContent = await fs.readFile(configPath, 'utf-8');
+      expect(finalContent).toBe(originalContent);
     } finally {
-      // Limpa o arquivo criado
       await fs.rm(configPath, { force: true });
     }
   });

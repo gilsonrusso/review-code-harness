@@ -19,10 +19,14 @@ RUN npm run build
 # --- Estágio 2: Imagem final de Execução ---
 FROM node:22-slim AS runner
 
-# Instala o Git (necessário para o DiffLoader) e o opencode-ai globalmente no contêiner
+# Instala Git, Python3, Pip, Venv, e as ferramentas estáticas / gerenciadores globais
 RUN apt-get update && apt-get install -y \
     git \
-    && npm install -g opencode-ai@1.15.13 \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && npm install -g opencode-ai@1.15.13 eslint typescript \
+    && pip3 install ruff uv --break-system-packages \
     && rm -rf /var/lib/apt/lists/*
 
 # Configura o Git para aceitar qualquer diretório (evita fatal: detected dubious ownership em montagens de volume)

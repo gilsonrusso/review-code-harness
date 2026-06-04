@@ -37,91 +37,112 @@ export class OpenCodeAdapter {
    */
   async run(instructions: string, timeoutSeconds: number, maxRetries: number): Promise<string> {
     const configPath = path.join(this.workspaceRoot, 'opencode.json');
-    let attempt = 0;
-    let lastError: any = null;
-    let createdTempConfig = false;
+    let originalConfigContent: string | null = null;
+    let configExists = false;
 
-    while (attempt <= maxRetries) {
-      attempt++;
-      try {
-        // Se não existir um arquivo opencode.json na raiz, cria um temporário com permissões auto-allow.
-        // Isso evita que a CLI do OpenCode pare para pedir confirmação do usuário (stdin) em execuções automatizadas/CI.
-        const configExists = await fs.access(configPath).then(() => true).catch(() => false);
-        if (!configExists) {
-          await fs.writeFile(configPath, JSON.stringify({
-            autoupdate: false,
-            permission: {
-              edit: "allow",
-              bash: "allow"
-            },
-            experimental: {
-              openTelemetry: false
-            },
-            telemetry: {
-              telemetryLevel: "off"
-            },
-            watcher: {
-              ignore: [
-                "node_modules/**",
-                "dist/**",
-                ".git/**"
-              ]
-            }
-          }, null, 2), 'utf-8');
-          createdTempConfig = true;
-        }
-
-        const opencodeBin = process.env.OPENCODE_BIN || 'opencode';
-        const args = ['run', instructions];
-
-        // Repassa o modelo especificado nas variáveis de ambiente de forma literal
-        const model = process.env.OPENCODE_MODEL;
-        if (model) {
-          args.push('-m', model);
-        }
-
-        const modelDisplay = model ? ` --model ${model}` : '';
-        console.info(`Invocando a CLI (Tentativa ${attempt}/${maxRetries + 1}): ${opencodeBin} run "<instructions>"${modelDisplay}`);
-
-        // Executa o subprocesso usando a biblioteca execa com timeout configurado e stdin ignorado
-        const subprocess = execa(opencodeBin, args, {
-          timeout: timeoutSeconds * 1000,
-          cwd: this.workspaceRoot,
-          stdin: 'ignore'
-        });
-
-        // Repassa os logs de diagnóstico e progresso da IA em tempo real para o console
-        subprocess.stderr?.pipe(process.stderr);
-
-        // Repassa a saída padrão do OpenCode em tempo real para o console e acumula o texto para parsing do JSON
-        let stdoutAccumulated = '';
-        subprocess.stdout?.on('data', (chunk) => {
-          const chunkStr = chunk.toString();
-          stdoutAccumulated += chunkStr;
-          process.stdout.write(chunkStr);
-        });
-
-        const { stdout } = await subprocess;
-        return stdoutAccumulated || stdout;
-      } catch (error: any) {
-        lastError = error;
-        console.warn(`Aviso: Tentativa ${attempt} falhou: ${error.message}`);
-        if (attempt <= maxRetries) {
-          console.info('Aguardando 1 segundo antes de tentar novamente...');
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      } finally {
-        // Remove o arquivo de configuração temporário, se foi criado pelo wrapper
-        if (createdTempConfig) {
-          await fs.rm(configPath, { force: true }).catch(err => {
-            console.warn(`Aviso: Não foi possível deletar o arquivo temporário ${configPath}: ${err.message}`);
-          });
-          createdTempConfig = false;
-        }
+    // 1. Setup / Backup Phase
+    try {
+      configExists = await fs.access(configPath).then(() => true).catch(() => false);
+      if (configExists) {
+        originalConfigContent = await fs.readFile(configPath, 'utf-8');
       }
+
+      // Sempre sobrescreve (ou cria) com a nossa configuração padrão segura e restrita.
+      // Desativa compartilhamento (share: disabled) e telemetria, e proíbe ferramentas de escrita/edição.
+      const safeConfig = {
+        autoupdate: false,
+        share: 'disabled',
+        permission: {
+          edit: 'allow',
+          bash: 'allow'
+        },
+        experimental: {
+          openTelemetry: false
+        },
+        telemetry: {
+          telemetryLevel: 'off'
+        },
+        watcher: {
+          ignore: [
+            'node_modules/**',
+            'dist/**',
+            '.git/**'
+          ]
+        },
+        tools: {
+          write: false,
+          edit: false
+        }
+      };
+
+      await fs.writeFile(configPath, JSON.stringify(safeConfig, null, 2), 'utf-8');
+    } catch (err: any) {
+      console.warn(`Aviso: Erro ao preparar arquivo opencode.json: ${err.message}`);
     }
 
-    throw new Error(`Falha na execução do OpenCode após ${attempt} tentativas. Último erro: ${lastError?.message}`);
+    // 2. Execution Phase (with Retries)
+    try {
+      let attempt = 0;
+      let lastError: any = null;
+
+      while (attempt <= maxRetries) {
+        attempt++;
+        try {
+          const opencodeBin = process.env.OPENCODE_BIN || 'opencode';
+          const args = ['run', instructions];
+
+          // Repassa o modelo especificado nas variáveis de ambiente de forma literal
+          const model = process.env.OPENCODE_MODEL;
+          if (model) {
+            args.push('-m', model);
+          }
+
+          const modelDisplay = model ? ` --model ${model}` : '';
+          console.info(`Invocando a CLI (Tentativa ${attempt}/${maxRetries + 1}): ${opencodeBin} run "<instructions>"${modelDisplay}`);
+
+          // Executa o subprocesso usando a biblioteca execa com timeout configurado e stdin ignorado
+          const subprocess = execa(opencodeBin, args, {
+            timeout: timeoutSeconds * 1000,
+            cwd: this.workspaceRoot,
+            stdin: 'ignore'
+          });
+
+          // Repassa os logs de diagnóstico e progresso da IA em tempo real para o console
+          subprocess.stderr?.pipe(process.stderr);
+
+          // Repassa a saída padrão do OpenCode em tempo real para o console e acumula o texto para parsing do JSON
+          let stdoutAccumulated = '';
+          subprocess.stdout?.on('data', (chunk) => {
+            const chunkStr = chunk.toString();
+            stdoutAccumulated += chunkStr;
+            process.stdout.write(chunkStr);
+          });
+
+          const { stdout } = await subprocess;
+          return stdoutAccumulated || stdout;
+        } catch (error: any) {
+          lastError = error;
+          console.warn(`Aviso: Tentativa ${attempt} falhou: ${error.message}`);
+          if (attempt <= maxRetries) {
+            console.info('Aguardando 1 segundo antes de tentar novamente...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+
+      throw new Error(`Falha na execução do OpenCode após ${attempt} tentativas. Último erro: ${lastError?.message}`);
+    } finally {
+      // 3. Restore / Cleanup Phase
+      try {
+        if (configExists && originalConfigContent !== null) {
+          await fs.writeFile(configPath, originalConfigContent, 'utf-8');
+        } else {
+          await fs.rm(configPath, { force: true });
+        }
+      } catch (cleanupError: any) {
+        console.warn(`Aviso: Falha ao limpar/restaurar o arquivo opencode.json: ${cleanupError.message}`);
+      }
+    }
   }
 
   /**

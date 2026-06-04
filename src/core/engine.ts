@@ -8,7 +8,6 @@ import fs from "fs/promises";
 
 interface EngineOptions {
   configPath?: string;
-  skillsDir?: string;
   dryRun?: boolean;
 }
 
@@ -34,9 +33,7 @@ export async function runReviewEngine(
 
   // 1. Carrega as configurações (.review-agent.yml)
   const config = await loadConfig(options.configPath);
-  const skillsPath = options.skillsDir || config.skills.path;
 
-  console.info(`- Diretório de skills: ${skillsPath}`);
   console.info(`- Limite de findings: ${config.review.max_findings}`);
   console.info(`- Timeout de execução: ${config.review.timeoutSeconds}s`);
   console.info(`- Máximo de retentativas: ${config.review.maxRetries}`);
@@ -90,7 +87,7 @@ export async function runReviewEngine(
 
   // 4. Monta as instruções estruturadas (Ajuste 5)
   console.info("📝 Construindo instruções de revisão...");
-  const instructions = buildInstructions(skillsPath);
+  const instructions = buildInstructions();
 
   // 5. Invoca o OpenCode CLI via Adapter (Ajuste 2 e 6)
   console.info("🤖 Invocando engine do OpenCode para análise...");

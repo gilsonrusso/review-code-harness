@@ -151,7 +151,7 @@ Responsável por:
 ### Ler Skills
 
 ```text
-.skills/
+.opencode/skills/
 ```
 
 ---
@@ -224,11 +224,12 @@ repository/
 ├── src/
 ├── tests/
 │
-├── .skills/
-│   ├── architecture.md
-│   ├── security.md
-│   ├── testing.md
-│   └── conventions.md
+├── .opencode/
+│   └── skills/
+│       ├── architecture/
+│       │   └── SKILL.md
+│       └── security/
+│           └── SKILL.md
 │
 └── .review-agent.yml
 ```
@@ -248,8 +249,6 @@ Exemplo:
 ```yaml
 version: 1
 
-skills:
-  path: .skills
 
 review:
   max_findings: 20
@@ -343,7 +342,7 @@ Exemplo:
 ```text
 Você é um Senior Code Reviewer.
 
-Leia as regras em .skills/.
+Consulte as Habilidades (Skills) registradas no projeto utilizando a ferramenta nativa 'skill' para obter as diretrizes e regras de negócio que devem ser validadas no Pull Request.
 
 Analise exclusivamente o Pull Request atual.
 

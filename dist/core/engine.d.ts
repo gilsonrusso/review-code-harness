@@ -1,6 +1,5 @@
 interface EngineOptions {
     configPath?: string;
-    skillsDir?: string;
     dryRun?: boolean;
 }
 /**
