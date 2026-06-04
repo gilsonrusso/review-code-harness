@@ -19,7 +19,9 @@ describe('loadConfig', () => {
     expect(config.version).toBe(1);
     expect(config.skills.path).toBe('.skills');
     expect(config.review.max_findings).toBe(20);
-    expect(config.output.format).toBe('github-pr');
+    expect(config.review.timeoutSeconds).toBe(300);
+    expect(config.review.maxRetries).toBe(3);
+    expect(config.output.mode).toBe('summary');
   });
 
   it('deve ler e validar arquivo YAML correto', async () => {
@@ -30,14 +32,18 @@ skills:
   path: custom-skills
 review:
   max_findings: 5
+  timeoutSeconds: 120
+  maxRetries: 2
 output:
-  format: console
+  mode: both
 `;
     await fs.writeFile(configPath, content, 'utf-8');
     const config = await loadConfig(configPath);
     expect(config.skills.path).toBe('custom-skills');
     expect(config.review.max_findings).toBe(5);
-    expect(config.output.format).toBe('console');
+    expect(config.review.timeoutSeconds).toBe(120);
+    expect(config.review.maxRetries).toBe(2);
+    expect(config.output.mode).toBe('both');
   });
 
   it('deve lançar erro se o arquivo contiver schema inválido', async () => {
