@@ -53,9 +53,6 @@ export class OpenCodeAdapter {
                 experimental: {
                     openTelemetry: false
                 },
-                telemetry: {
-                    telemetryLevel: 'off'
-                },
                 watcher: {
                     ignore: [
                         'node_modules/**',
