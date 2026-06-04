@@ -8,6 +8,14 @@ program
     .name('review-agent')
     .description('Plataforma de Code Review Inteligente baseada em Skills e OpenCode')
     .version('1.0.0');
+/**
+ * Comando 'run': Executa o processo completo de revisão de código do projeto.
+ *
+ * Opções aceitas:
+ * - `-c, --config`: Permite apontar para um arquivo alternativo de configurações em vez de `.review-agent.yml`.
+ * - `-s, --skills-dir`: Permite customizar a pasta contendo regras sem alterar o arquivo de configurações principal.
+ * - `--dry-run`: Executa a análise localmente e imprime o resultado formatado no console sem fazer chamadas à API do GitHub.
+ */
 program
     .command('run')
     .description('Executa a revisão automática do código com base no diff e nas skills')
@@ -27,6 +35,14 @@ program
         process.exit(1);
     }
 });
+/**
+ * Comando 'init': Inicializa a estrutura padrão necessária para o Review Agent rodar no projeto.
+ *
+ * Ações:
+ * 1. Cria a pasta `.skills/` na raiz do projeto alvo.
+ * 2. Escreve dois arquivos Markdown com exemplos de regras (`architecture.md` e `security.md`).
+ * 3. Cria o arquivo de configurações padrão `.review-agent.yml` contendo os limites e tempos limites sugeridos.
+ */
 program
     .command('init')
     .description('Inicializa a estrutura padrão de diretórios e arquivos de configuração')
@@ -37,7 +53,7 @@ program
         const skillsDir = path.join(process.cwd(), '.skills');
         await fs.mkdir(skillsDir, { recursive: true });
         console.info(`- Pasta criada: ${skillsDir}`);
-        // 2. Cria arquivos markdown de exemplo
+        // 2. Cria arquivos markdown de exemplo de regras/skills
         const sampleArch = `# Architecture Rules
 
 - Funções devem seguir o Princípio da Responsabilidade Única (SRP).
@@ -53,7 +69,7 @@ program
 `;
         await fs.writeFile(path.join(skillsDir, 'security.md'), sampleSec, 'utf-8');
         console.info('- Arquivos de skills de exemplo (.skills/architecture.md e security.md) criados.');
-        // 3. Cria arquivo de configuração .review-agent.yml
+        // 3. Cria arquivo de configuração inicial .review-agent.yml
         const sampleConfig = `version: 1
 
 skills:
@@ -61,9 +77,11 @@ skills:
 
 review:
   max_findings: 20
+  timeoutSeconds: 300
+  maxRetries: 3
 
 output:
-  format: github-pr
+  mode: both
 `;
         const configPath = path.join(process.cwd(), '.review-agent.yml');
         await fs.writeFile(configPath, sampleConfig, 'utf-8');
