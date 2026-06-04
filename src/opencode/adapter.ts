@@ -52,6 +52,12 @@ export class OpenCodeAdapter {
             permission: {
               edit: "allow",
               bash: "allow"
+            },
+            experimental: {
+              openTelemetry: false
+            },
+            telemetry: {
+              telemetryLevel: "off"
             }
           }, null, 2), 'utf-8');
           createdTempConfig = true;
