@@ -1,218 +1,650 @@
-# Product Requirement Document (PRD) - Review Agent MVP (Fase 1)
+# Review Agent MVP
 
-## 1. Visão Geral do Produto
-O **Review Agent** é uma plataforma de revisão automática de código para Pull Requests (PRs) executada em ambientes de CI/CD (GitHub Actions), utilizando o **OpenCode** como engine principal de análise de IA. 
+## Arquitetura Simplificada Baseada em OpenCode
 
-O produto é agnóstico a linguagens de programação e frameworks. A inteligência e as regras de revisão são definidas pelo próprio projeto através de **Skills** declaradas em formato Markdown e configuradas por um arquivo YAML na raiz do repositório.
+Versão: 2.0
 
----
-
-## 2. Decisões Arquiteturais Centrais
-
-### 2.1. Exclusividade do OpenCode no MVP
-A análise de código será realizada de forma exclusiva pelo OpenCode no MVP.
-- **Segurança**: O OpenCode executa localmente dentro do contêiner no GitHub Runner, sendo ideal para repositórios privados.
-- **Acesso ao Workspace**: O OpenCode consegue ler arquivos do projeto, analisar imports, dependências e contextos adicionais além do diff isolado do PR.
-
-### 2.2. Distribuição via Docker
-O Review Agent será distribuído como uma imagem Docker contendo:
-- Node.js 22
-- Git
-- OpenCode CLI
-- Review Agent CLI (TypeScript compiled)
-
-Isso simplifica a instalação no GitHub Actions, dispensando a instalação de dependências e binários complexos no runner host.
+Status: Decisão Arquitetural Oficial
 
 ---
 
-## 3. Fluxo de Execução
+# Objetivo
+
+Construir uma ferramenta de revisão automática de Pull Requests utilizando OpenCode como engine principal de análise.
+
+O sistema deve ser simples.
+
+O sistema não deve duplicar responsabilidades já existentes no OpenCode.
+
+O sistema deve aproveitar a capacidade do OpenCode de:
+
+* Navegar no repositório
+* Ler arquivos
+* Obter diffs
+* Compreender contexto
+* Aplicar regras
+* Produzir findings
+
+---
+
+# Princípio Fundamental
+
+## O OpenCode é o Revisor
+
+O OpenCode deve ser considerado o responsável pela análise.
+
+Ele possui acesso ao workspace completo.
+
+Ele possui capacidade de:
 
 ```text
-Pull Request (GitHub)
-     │
-     ▼
-GitHub Action (Runner envia segredos e faz checkout)
-     │
-     ▼
-Docker Container (review-agent:latest)
-     │
-     ├── 1. Lê arquivo de configuração (.review-agent.yml)
-     ├── 2. Skill Loader: Carrega regras de .skills/
-     ├── 3. Diff Loader: Obtém o patch de git diff origin/main...HEAD
-     ├── 4. Context Builder: Gera instruções e contexto para o OpenCode
-     ├── 5. OpenCode Adapter: Executa o OpenCode CLI localmente
-     ├── 6. Findings Parser: Valida e parseia findings JSON do OpenCode
-     └── 7. GitHub Publisher: Publica comentários consolidados no PR
-     │
-     ▼
-GitHub PR (comentários de revisão criados)
+Executar git diff
+Abrir arquivos
+Buscar referências
+Ler documentação
+Analisar testes
+Compreender contexto
+```
+
+Portanto não devemos reconstruir essas capacidades no Review Agent.
+
+---
+
+# O Que NÃO Construiremos
+
+Não implementar:
+
+```text
+Diff Parser
+Patch Parser
+File Classifier
+Language Detector
+Architecture Analyzer
+Security Analyzer
+Finding Generator
+Context Builder
+Rule Engine
+```
+
+Motivo:
+
+Tudo isso pode ser executado pelo OpenCode.
+
+Duplicar essas responsabilidades aumenta:
+
+* Complexidade
+* Manutenção
+* Custo
+* Acoplamento
+
+Sem gerar benefícios reais.
+
+---
+
+# Filosofia da Solução
+
+Arquitetura tradicional:
+
+```text
+Review Agent
+│
+├── Diff Parser
+├── Skill Loader
+├── Context Builder
+├── Analyzer
+├── Finding Generator
+└── GitHub Publisher
+```
+
+Arquitetura escolhida:
+
+```text
+Review Agent
+│
+├── Config Loader
+├── OpenCode Adapter
+└── GitHub Publisher
+```
+
+O OpenCode faz todo o trabalho de análise.
+
+---
+
+# Responsabilidades
+
+## Review Agent
+
+Responsável apenas por:
+
+### Configuração
+
+Ler:
+
+```text
+.review-agent.yml
 ```
 
 ---
 
-## 4. Requisitos Funcionais
+### Execução
 
-### RF-01: Configuração do Projeto (.review-agent.yml)
-- O sistema deve carregar as diretrizes de execução a partir do arquivo `.review-agent.yml` localizado na raiz do projeto.
-- Exemplo de estrutura:
-  ```yaml
-  version: 1
-  skills:
-    path: .skills
-  review:
-    max_findings: 20
-  output:
-    format: github-pr
-  ```
+Invocar OpenCode.
 
-### RF-02: Carregamento de Skills (Skill Loader)
-- O sistema deve ler os arquivos Markdown de regras (ex: `architecture.md`, `security.md`) do diretório indicado na configuração (padrão: `.skills/`).
-- Essas skills serão concatenadas ou indexadas como parte do prompt/diretrizes do orquestrador enviadas ao OpenCode.
+---
 
-### RF-03: Obtenção de Alterações (Diff Loader)
-- Deve executar `git diff origin/main...HEAD` via subprocesso assíncrono para identificar a lista de arquivos alterados e obter o conteúdo do diff (patch).
+### Integração GitHub
 
-### RF-04: Orquestração e Integração com OpenCode (OpenCode Adapter)
-- O Review Agent deve rodar em conjunto com o OpenCode local.
-- Ele gera o arquivo de instruções de revisão (incluindo o diff, a lista de skills e o prompt do revisor).
-- Invoca o OpenCode CLI passando as instruções de entrada.
-- O OpenCode, possuindo acesso completo ao workspace, realiza a análise e cospe as descobertas.
+Publicar resultado.
 
-### RF-05: Formato Padronizado de Findings
-O Review Agent extrai e valida as descobertas do OpenCode. O formato de saída produzido pela IA deve respeitar o seguinte JSON estrito:
+---
+
+### Logging
+
+Registrar execução.
+
+---
+
+## OpenCode
+
+Responsável por:
+
+### Ler Skills
+
+```text
+.skills/
+```
+
+---
+
+### Obter Diff
+
+Executar internamente:
+
+```bash
+git diff
+```
+
+ou qualquer estratégia que julgar adequada.
+
+---
+
+### Navegar Projeto
+
+Abrir:
+
+```text
+Arquivos
+Diretórios
+Testes
+Documentação
+Dependências
+```
+
+---
+
+### Aplicar Regras
+
+Interpretar Skills.
+
+---
+
+### Produzir Findings
+
+Gerar resultado final.
+
+---
+
+# Estrutura do Projeto
+
+```text
+review-agent/
+
+src/
+
+├── cli/
+│
+├── config/
+│
+├── github/
+│
+├── opencode/
+│
+├── models/
+│
+└── tests/
+```
+
+---
+
+# Estrutura do Projeto do Usuário
+
+```text
+repository/
+
+├── src/
+├── tests/
+│
+├── .skills/
+│   ├── architecture.md
+│   ├── security.md
+│   ├── testing.md
+│   └── conventions.md
+│
+└── .review-agent.yml
+```
+
+---
+
+# Arquivo de Configuração
+
+Local:
+
+```text
+.review-agent.yml
+```
+
+Exemplo:
+
+```yaml
+version: 1
+
+skills:
+  path: .skills
+
+review:
+  max_findings: 20
+  timeoutSeconds: 300
+  maxRetries: 3
+
+output:
+  mode: both
+```
+
+---
+
+# Skill System
+
+As Skills são a única fonte de conhecimento específica do projeto.
+
+Exemplo:
+
+```md
+# Architecture
+
+- Controllers não devem conter regra de negócio.
+- Funções acima de 50 linhas devem ser refatoradas.
+- Dependências devem ser injetadas.
+```
+
+---
+
+Exemplo:
+
+```md
+# Security
+
+- Nunca armazenar segredos no código.
+- Validar toda entrada externa.
+- Utilizar queries parametrizadas.
+```
+
+---
+
+# Fluxo de Execução
+
+## Passo 1
+
+GitHub Action inicia.
+
+```text
+Pull Request Aberto
+```
+
+---
+
+## Passo 2
+
+Checkout do repositório.
+
+```yaml
+- uses: actions/checkout@v4
+```
+
+---
+
+## Passo 3
+
+Executar container.
+
+```yaml
+docker run review-agent
+```
+
+---
+
+## Passo 4
+
+Review Agent inicia.
+
+Carrega:
+
+```text
+.review-agent.yml
+```
+
+---
+
+## Passo 5
+
+Review Agent monta instrução para OpenCode.
+
+Exemplo:
+
+```text
+Você é um Senior Code Reviewer.
+
+Leia as regras em .skills/.
+
+Analise exclusivamente o Pull Request atual.
+
+Você possui acesso ao workspace completo.
+
+Retorne EXCLUSIVAMENTE JSON.
+
+Formato obrigatório:
+
+{
+  "findings": [
+    {
+      "severity": "critical|high|medium|low|info",
+      "file": "...",
+      "line": 123,
+      "title": "...",
+      "description": "...",
+      "suggestion": "..."
+    }
+  ]
+}
+
+Não produza markdown.
+
+Não produza texto explicativo.
+
+Não produza comentários fora do JSON.
+```
+
+---
+
+## Passo 6
+
+OpenCode executa.
+
+O OpenCode decide:
+
+```text
+Quais arquivos abrir
+Quais testes analisar
+Como obter o diff
+Como navegar no projeto
+```
+
+Nenhuma dessas decisões pertence ao Review Agent.
+
+---
+
+## Passo 7
+
+OpenCode produz resultado.
+
+---
+
+# Formato de Saída
+
+Decisão arquitetural:
+
+Utilizar JSON estruturado.
+
+Exemplo:
+
 ```json
 {
   "findings": [
     {
+      "file": "src/auth.ts",
+      "line": 57,
       "severity": "high",
-      "file": "src/service.ts",
-      "line": 32,
-      "title": "Large Function",
-      "description": "Function exceeds project conventions.",
-      "suggestion": "Split into smaller units."
+      "title": "Missing Authorization Check",
+      "description": "Authorization validation is missing.",
+      "suggestion": "Validate permissions before execution."
     }
   ]
 }
 ```
-**Severidades permitidas**: `critical`, `high`, `medium`, `low`, `info`.
-
-### RF-06: Publicação no GitHub (GitHub Publisher)
-- Lê a variável de ambiente `GITHUB_TOKEN`.
-- Publica no Pull Request um comentário de revisão consolidado (Review Summary) listando a quantidade de ocorrências por severidade e uma tabela explicativa dos findings.
 
 ---
 
-## 5. Requisitos Não Funcionais
+# Motivo para Utilizar JSON
 
-### RNF-01: Linguagem e Runtime
-- Código do orquestrador Review Agent desenvolvido em **TypeScript** executando no **Node.js 22+**.
+Permite:
 
-### RNF-02: Performance e Execução Local
-- Utilização de `execa` para invocar subprocessos de comandos git e do CLI do OpenCode.
-- Parsing e validação de schemas de entrada/saída utilizando a biblioteca `zod`.
+### Comentário Geral
 
-### RNF-03: Empacotamento
-- O código compilado de TypeScript e as dependências serão empacotados e publicados dentro de um container Docker (ex: no GitHub Container Registry - GHCR).
-
----
-
-## 6. Estrutura do Projeto Proposta
+Gerar automaticamente:
 
 ```text
-review-agent/
-├── src/
-│   ├── cli/
-│   │   └── index.ts          # CLI com Commander (opções run, init, validate)
-│   ├── core/
-│   │   ├── config.ts         # Leitor e validador do .review-agent.yml
-│   │   ├── loaders.ts        # SkillLoader e DiffLoader
-│   │   ├── context.ts        # ContextBuilder (gerador de prompt/instruções para OpenCode)
-│   │   └── engine.ts         # Coordenador de fluxo do Review Agent
-│   ├── opencode/
-│   │   └── adapter.ts        # Invocação do OpenCode CLI e captura de resultados
-│   ├── parsers/
-│   │   └── findings.ts       # Validador de findings estruturados usando Zod
-│   ├── github/
-│   │   └── publisher.ts      # Publicação de comentários na API do GitHub
-│   ├── models/
-│   │   └── types.ts          # Interfaces e tipos TypeScript de skills, diffs e findings
-│   ├── prompts/
-│   │   └── templates.ts      # Templates de prompts do revisor
-│   └── index.ts
-├── tests/
-│   ├── config.test.ts
-│   ├── loaders.test.ts
-│   ├── adapter.test.ts
-│   └── publisher.test.ts
-├── Dockerfile                # Montagem da imagem com Node + Git + OpenCode + Review Agent
-├── package.json
-├── tsconfig.json
-├── pnpm-lock.yaml
-└── README.md
+Review Summary
+
+Critical: 1
+High: 2
+Medium: 3
 ```
 
 ---
 
-## 7. Roadmap do Produto
+### Comentários Inline
 
-- **MVP (Fase 1)**: Execução local do OpenCode, carregamento de `.skills/`, leitura de `git diff`, parsing do JSON de findings e publicação de um Comentário Geral / Resumo de Review no GitHub PR.
-- **Fase 2**: Suporte a Comentários Inline (Threads por linha/arquivo no Pull Request do GitHub).
-- **Fase 3**: Classificação inteligente e filtragem de findings repetidos ou falso-positivos.
-- **Fase 4**: Categorização de revisões por Skill específica (ex: revisão exclusiva de segurança ou de performance).
-- **Fase 5**: Criação de Skill Packs distribuídos (packs pré-prontos para React, Terraform, etc.).
+GitHub exige:
 
+```text
+arquivo
+linha
+```
 
-##Resumo do Trabalho Realizado:
-Infraestrutura: Configurados os arquivos 
+Exemplo:
 
-package.json
- (com scripts de dev/test/build) e 
+```text
+src/auth.ts
+linha 57
+```
 
-tsconfig.json
- (target ES2022/NodeNext). As dependências foram instaladas com sucesso no ambiente.
-Tipos e Schemas: Criados os modelos TypeScript compartilhados em 
+Portanto precisamos de saída estruturada.
 
-types.ts
- e o validador de findings baseado em Zod em 
+Markdown puro não é suficiente para comentários inline.
 
-findings.ts
-.
-Módulos Core:
-Implementada a leitura robusta de configuração do .review-agent.yml em 
+---
 
-config.ts
-.
-Criados os carregadores de Skills (.skills/*.md) e Diff (com múltiplos fallbacks e git diff parser estruturado) em 
+# GitHub Publisher
 
-loaders.ts
-.
-Implementado o compilador de prompts estruturados para o OpenCode em 
+Responsável por:
 
-context.ts
-.
-Adapters & Integrações:
-Desenvolvido o adaptador do CLI do OpenCode em 
+### Publicar Resumo
 
-adapter.ts
- (com escrita temporária de arquivo e limpeza no final).
-Criado o publicador de comentários no GitHub PR utilizando Octokit em 
+Comentário geral.
 
-publisher.ts
- (com tabelas markdown ricas e fallback para terminal).
-CLI & Orquestrador:
-Criado o coordenador principal do fluxo em 
+---
 
-engine.ts
-.
-Implementada a CLI com comandos run e init usando Commander em 
+### Publicar Comentários Inline
 
-index.ts
-.
-Dockerfile: Criado o 
+Quando existir:
 
-Dockerfile
- multi-stage contendo Node 22, Git e o CLI globalmente registrado para distribuição simplificada via contêiner.
-Testes e Build:
-Escritos 18 testes unitários cobrindo todos os fluxos críticos sob o diretório tests/.
-Executados os testes com 100% de sucesso via Vitest.
-Executada a compilação do TypeScript com sucesso (npm run build).
+```json
+{
+  "file": "...",
+  "line": ...
+}
+```
+
+---
+
+# Estratégia de Publicação
+
+## MVP
+
+Publicar:
+
+```text
+1 comentário geral
+```
+
+e opcionalmente:
+
+```text
+Comentários inline apenas para:
+
+critical
+high
+```
+
+---
+
+# Docker
+
+## Imagem Oficial
+
+```text
+ghcr.io/company/review-agent
+```
+
+---
+
+## Conteúdo
+
+```text
+Node.js 22
+Git
+OpenCode
+Review Agent
+```
+
+---
+
+# GitHub Action
+
+Exemplo:
+
+```yaml
+name: Review Agent
+
+on:
+  pull_request:
+
+jobs:
+
+  review:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - name: Run Review Agent
+        run: |
+          docker run \
+            -v $PWD:/workspace \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            ghcr.io/company/review-agent
+```
+
+---
+
+# Roadmap
+
+## MVP
+
+Implementar:
+
+```text
+Config Loader
+OpenCode Adapter
+JSON Output
+GitHub Summary Comment
+```
+
+---
+
+## V2
+
+Implementar:
+
+```text
+Inline Comments
+```
+
+---
+
+## V3
+
+Implementar:
+
+```text
+Confidence Score
+```
+
+Exemplo:
+
+```json
+{
+  "confidence": 0.93
+}
+```
+
+---
+
+## V4
+
+Implementar:
+
+```text
+Skill Packs
+```
+
+Exemplos:
+
+```text
+React
+NestJS
+Go
+Terraform
+Kubernetes
+```
+
+---
+
+# Decisão Final
+
+A arquitetura oficial do produto será:
+
+```text
+Review Agent = Orquestrador
+
+OpenCode = Revisor
+```
+
+O Review Agent não deve compreender código.
+
+O Review Agent não deve analisar diffs.
+
+O Review Agent não deve gerar findings.
+
+O Review Agent apenas:
+
+```text
+Configura
+Executa
+Recebe Resultado
+Publica Resultado
+```
+
+Toda a inteligência de revisão pertence ao OpenCode apoiado pelas Skills fornecidas pelo projeto.
