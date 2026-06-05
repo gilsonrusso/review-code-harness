@@ -268,15 +268,31 @@ As seguintes variáveis já são passadas de forma automática pelo runner do Gi
 
 ### 💻 Executar o Review Agent Localmente (Modo Dry-Run)
 
-Se você quiser analisar as regras e o código do seu repositório localmente no terminal antes de enviar um Pull Request, você pode rodar a imagem Docker no modo `--dry-run`:
+### 💻 Executar o Review Agent Localmente (Modo Dry-Run)
+
+Para facilitar a execução local no terminal do seu repositório sem precisar digitar comandos complexos do Docker, o projeto inclui um script auxiliar chamado `run-local.sh`.
+
+#### Passo 1: Crie o arquivo `.env`
+Na raiz do seu projeto alvo (onde você quer rodar a revisão), crie um arquivo `.env` contendo a sua chave de API e modelo preferido:
+
+```env
+GOOGLE_GENERATIVE_AI_API_KEY="sua_chave_gemini_aqui"
+OPENCODE_MODEL="google/gemini-2.5-flash"
+```
+
+#### Passo 2: Execute o script auxiliar
+Aponte para o caminho do `run-local.sh` (que está no repositório do Review Agent) estando dentro da pasta do seu projeto. O script lerá o `.env` automaticamente e repassará tudo para o Docker:
 
 ```bash
-docker run --rm \
-  -v $PWD:/workspace \
-  -e GOOGLE_GENERATIVE_AI_API_KEY="sua_chave_gemini_aqui" \
-  -e OPENAI_API_KEY="sua_chave_openai_aqui" \
-  -e OPENCODE_MODEL="google/gemini-2.5-flash" \
-  ghcr.io/seu-usuario/review-agent:latest run --dry-run
+chmod +x run-local.sh
+/caminho/para/review-code-harness/run-local.sh
+```
+
+*(Por padrão, se executado sem argumentos, o script roda `run --dry-run --commits 2`)*. Você pode passar outros comandos ou flags livremente:
+
+```bash
+# Limitar a análise a 1 commit
+/caminho/para/review-code-harness/run-local.sh run --dry-run --commits 1
 ```
 
 * **O que acontece:** O Review Agent fará a checagem das regras locais contra o seu diff Git local do seu branch atual e imprimirá a tabela de findings estruturados diretamente na tela do seu console, sem realizar chamadas ou posts para as APIs do GitHub.
