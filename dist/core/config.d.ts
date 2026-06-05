@@ -15,14 +15,20 @@ export declare const ConfigSchema: z.ZodObject<{
         max_findings: z.ZodDefault<z.ZodNumber>;
         timeoutSeconds: z.ZodDefault<z.ZodNumber>;
         maxRetries: z.ZodDefault<z.ZodNumber>;
+        commits: z.ZodDefault<z.ZodUnion<[z.ZodNumber, z.ZodLiteral<"all">]>>;
+        baseBranch: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         max_findings: number;
         timeoutSeconds: number;
         maxRetries: number;
+        commits: number | "all";
+        baseBranch?: string | undefined;
     }, {
         max_findings?: number | undefined;
         timeoutSeconds?: number | undefined;
         maxRetries?: number | undefined;
+        commits?: number | "all" | undefined;
+        baseBranch?: string | undefined;
     }>>;
     output: z.ZodDefault<z.ZodObject<{
         mode: z.ZodDefault<z.ZodEnum<["summary", "inline", "both"]>>;
@@ -37,6 +43,8 @@ export declare const ConfigSchema: z.ZodObject<{
         max_findings: number;
         timeoutSeconds: number;
         maxRetries: number;
+        commits: number | "all";
+        baseBranch?: string | undefined;
     };
     output: {
         mode: "summary" | "inline" | "both";
@@ -47,6 +55,8 @@ export declare const ConfigSchema: z.ZodObject<{
         max_findings?: number | undefined;
         timeoutSeconds?: number | undefined;
         maxRetries?: number | undefined;
+        commits?: number | "all" | undefined;
+        baseBranch?: string | undefined;
     } | undefined;
     output?: {
         mode?: "summary" | "inline" | "both" | undefined;

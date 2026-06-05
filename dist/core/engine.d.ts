@@ -1,6 +1,8 @@
 interface EngineOptions {
     configPath?: string;
     dryRun?: boolean;
+    commits?: string;
+    baseBranch?: string;
 }
 /**
  * Coordenador/Orquestrador Principal do Fluxo (runReviewEngine).

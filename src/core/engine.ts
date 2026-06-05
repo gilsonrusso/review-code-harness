@@ -9,6 +9,8 @@ import fs from "fs/promises";
 interface EngineOptions {
   configPath?: string;
   dryRun?: boolean;
+  commits?: string;
+  baseBranch?: string;
 }
 
 /**
@@ -83,7 +85,12 @@ export async function runReviewEngine(
     { owner, repo, pullNumber, commitSha },
     token,
   );
-  await validator.initialize();
+  
+  // CLI flags take precedence over YAML config
+  const finalCommits = options.commits || config.review.commits;
+  const finalBaseBranch = options.baseBranch || config.review.baseBranch;
+  
+  await validator.initialize({ commits: finalCommits, baseBranch: finalBaseBranch });
 
   // 4. Monta as instruções estruturadas (Ajuste 5)
   console.info("📝 Construindo instruções de revisão...");

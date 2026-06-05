@@ -82,15 +82,33 @@ export class DiffCoordinateValidator {
    * Se ambos falharem, desliga silenciosamente a validação retornando sempre true no isLineChanged
    * para evitar bloqueios ao processo.
    */
-  async initialize(): Promise<void> {
+  async initialize(options?: { commits?: string | number, baseBranch?: string }): Promise<void> {
     // 1. Tentar obter diff usando Git local
     try {
       const git = simpleGit(this.workspaceRoot);
       const isRepo = await git.checkIsRepo().catch(() => false);
       if (isRepo) {
         let rawDiff = '';
-        // Conjunto de referências comuns no pipeline CI ou desenvolvimento
-        const refs = ['origin/main...HEAD', 'main...HEAD', 'master...HEAD', 'HEAD~1'];
+        
+        let refs: string[] = [];
+        const commits = options?.commits;
+        const baseBranch = options?.baseBranch;
+
+        if (commits && commits !== 'all') {
+          // Usar número específico de commits
+          const numCommits = parseInt(commits.toString(), 10);
+          if (!isNaN(numCommits) && numCommits > 0) {
+            refs.push(`HEAD~${numCommits}`);
+          }
+        } else {
+          // 'all' commits: usar baseBranch se fornecido, senão heurística padrão
+          if (baseBranch) {
+            refs.push(`origin/${baseBranch}...HEAD`);
+            refs.push(`${baseBranch}...HEAD`);
+          } else {
+            refs = ['origin/main...HEAD', 'main...HEAD', 'master...HEAD', 'HEAD~1'];
+          }
+        }
         
         for (const ref of refs) {
           try {

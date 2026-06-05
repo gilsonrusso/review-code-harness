@@ -23,11 +23,15 @@ program
   .description('Executa a revisão automática do código com base no diff e nas skills nativas')
   .option('-c, --config <path>', 'Caminho alternativo para o arquivo .review-agent.yml')
   .option('--dry-run', 'Imprime os findings no console sem publicar no GitHub', false)
+  .option('--commits <value>', 'Número de commits para analisar localmente ou "all" (apenas dry-run)')
+  .option('--base-branch <branch>', 'Branch base para comparação quando commits for "all" (apenas dry-run)')
   .action(async (options) => {
     try {
       await runReviewEngine({
         configPath: options.config,
-        dryRun: options.dryRun
+        dryRun: options.dryRun,
+        commits: options.commits,
+        baseBranch: options.baseBranch
       });
     } catch (error: any) {
       console.error(`❌ Erro durante a execução da revisão: ${error.message}`);

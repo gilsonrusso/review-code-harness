@@ -17,8 +17,10 @@ export const ConfigSchema = z.object({
     review: z.object({
         max_findings: z.number().int().positive().default(20),
         timeoutSeconds: z.number().int().positive().default(300),
-        maxRetries: z.number().int().nonnegative().default(3)
-    }).default({ max_findings: 20, timeoutSeconds: 300, maxRetries: 3 }),
+        maxRetries: z.number().int().nonnegative().default(3),
+        commits: z.union([z.number().int().positive(), z.literal('all')]).default('all'),
+        baseBranch: z.string().optional()
+    }).default({ max_findings: 20, timeoutSeconds: 300, maxRetries: 3, commits: 'all' }),
     output: z.object({
         mode: z.enum(['summary', 'inline', 'both']).default('both')
     }).default({ mode: 'both' })
@@ -44,6 +46,7 @@ review:
   max_findings: 20
   timeoutSeconds: 300
   maxRetries: 3
+  commits: all
 
 output:
   mode: both

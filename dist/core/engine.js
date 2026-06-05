@@ -63,7 +63,10 @@ export async function runReviewEngine(options = {}) {
     // 3. Inicializa o validador de coordenadas do diff (Ajuste 1)
     console.info("🔍 Inicializando validador de coordenadas do diff...");
     const validator = new DiffCoordinateValidator(workspaceRoot, { owner, repo, pullNumber, commitSha }, token);
-    await validator.initialize();
+    // CLI flags take precedence over YAML config
+    const finalCommits = options.commits || config.review.commits;
+    const finalBaseBranch = options.baseBranch || config.review.baseBranch;
+    await validator.initialize({ commits: finalCommits, baseBranch: finalBaseBranch });
     // 4. Monta as instruções estruturadas (Ajuste 5)
     console.info("📝 Construindo instruções de revisão...");
     const instructions = buildInstructions();

@@ -44,7 +44,10 @@ export declare class DiffCoordinateValidator {
      * Se ambos falharem, desliga silenciosamente a validação retornando sempre true no isLineChanged
      * para evitar bloqueios ao processo.
      */
-    initialize(): Promise<void>;
+    initialize(options?: {
+        commits?: string | number;
+        baseBranch?: string;
+    }): Promise<void>;
     /**
      * Verifica se uma determinada linha de um arquivo está inserida nas modificações sofridas no diff do PR.
      *

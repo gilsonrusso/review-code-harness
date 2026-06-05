@@ -284,6 +284,29 @@ docker run --rm \
 
 > **Nota:** O arquivo `review-summary.md` já está incluído no `.gitignore` padrão para não poluir seus commits.
 
+#### 🎯 Controle do Escopo do Diff Local (Apenas Dry-Run)
+
+Em execuções locais (`--dry-run`), o orquestrador não possui a API do GitHub para saber exatamente quais arquivos compõem o seu Pull Request. Por padrão, ele tenta adivinhar comparando sua branch local com a `main` (`git diff origin/main...HEAD`). Se a sua branch divergiu muito da main, o diff pode ficar gigantesco e causar estouro de timeout na IA.
+
+Você pode **restringir** o escopo do que a IA vai analisar usando as flags abaixo na CLI:
+
+* `--commits <numero>`: Analisa apenas um número específico de commits recentes.
+  * *Exemplo:* `run --dry-run --commits 3` (avalia apenas os últimos 3 commits da branch atual)
+* `--base-branch <branch>`: Analisa contra uma branch de referência diferente da main.
+  * *Exemplo:* `run --dry-run --base-branch develop` (compara `origin/develop...HEAD`)
+
+Você também pode fixar esse comportamento no seu `.review-agent.yml`:
+
+```yaml
+review:
+  commits: 5              # Analisa apenas os 5 commits mais recentes localmente
+  # ou
+  commits: all            # Comportamento padrão (analisa o acumulado da branch)
+  baseBranch: develop     # Referência para quando commits for "all"
+```
+
+> **Aviso:** Essas opções são **ignoradas** durante execuções reais no GitHub Actions, onde o escopo dos arquivos alterados é obtido sempre com 100% de precisão via API do GitHub para o PR específico.
+
 ---
 
 ## 🛠️ Revisão Híbrida (Linters e Analisadores Estáticos Embutidos)
