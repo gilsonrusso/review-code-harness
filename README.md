@@ -162,6 +162,10 @@ name: Review Agent
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   review:
