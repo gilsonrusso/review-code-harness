@@ -49,6 +49,8 @@ review:
   max_findings: 20            # Limite máximo de ocorrências a reportar no PR. Padrão: 20
   timeoutSeconds: 300         # Tempo limite (segundos) por tentativa do OpenCode. Padrão: 300
   maxRetries: 3               # Tentativas adicionais em caso de falha da CLI. Padrão: 3
+  commits: all                # Controle do diff local (número ou "all"). Padrão: all
+  baseBranch: main            # Branch base local caso commits seja "all". (Opcional)
 
 output:
   mode: both                  # Modo de publicação no GitHub. Padrão: summary.

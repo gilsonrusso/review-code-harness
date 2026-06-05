@@ -103,6 +103,7 @@ Por fim, vamos simular a execução do revisor utilizando o OpenCode mockado.
    ```bash
    OPENCODE_BIN=./mock-opencode.sh node /home/gilson-russo/development/professional/review-code-harness/dist/cli/index.js run --dry-run
    ```
+   *Nota: Caso o seu diff local esteja muito grande e cause demoras ou erros na IA, você pode restringir o número de commits analisados passando a flag `--commits 3` (revisa apenas os 3 últimos commits) ou trocando a branch base com `--base-branch develop`.*
 
 4. **Observe os Resultados**:
-   O Review Agent irá carregar a configuração local, o diff da branch `master...feature/test-review`, extrairá o JSON mockado do OpenCode e imprimirá o resumo e a tabela Markdown de findings diretamente no seu console!
+   O Review Agent irá carregar a configuração local, o diff da branch (por padrão `main...feature/test-review`), extrairá o JSON mockado do OpenCode e imprimirá o resumo e a tabela Markdown de findings diretamente no seu console! E adicionalmente, irá gerar um arquivo `review-summary.md` no seu projeto alvo com o resultado consolidado.
