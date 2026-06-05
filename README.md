@@ -216,11 +216,20 @@ Para facilitar a execução local no terminal do seu repositório sem precisar d
 
 #### Passo 1: Crie o arquivo `.env`
 
-Na raiz do seu projeto alvo (onde você quer rodar a revisão), crie um arquivo `.env` contendo a sua chave de API e modelo preferido:
+Na raiz do seu projeto alvo (onde você quer rodar a revisão), crie um arquivo `.env` contendo a sua chave de API e modelo preferido.
 
+**Exemplo 1: Usando provedores oficiais (Google, OpenAI, Anthropic)**
 ```env
 GOOGLE_GENERATIVE_AI_API_KEY="sua_chave_gemini_aqui"
 OPENCODE_MODEL="google/gemini-2.5-flash"
+```
+
+**Exemplo 2: Usando uma LLM Customizada (ex: LM Studio, Ollama, vLLM ou Proxy Corporativo)**
+Para usar provedores customizados que sigam o padrão da API da OpenAI, basta definir a URL e passar o token genérico na chave `OPENAI_API_KEY`:
+```env
+OPENCODE_API_URL="http://localhost:1234/v1"
+OPENAI_API_KEY="seu_token_aqui_ou_lm_studio"
+OPENCODE_MODEL="openai/nome-do-seu-modelo-local"
 ```
 
 #### Passo 2: Execute o script auxiliar
