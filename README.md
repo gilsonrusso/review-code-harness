@@ -280,6 +280,9 @@ docker run --rm \
 ```
 
 * **O que acontece:** O Review Agent fará a checagem das regras locais contra o seu diff Git local do seu branch atual e imprimirá a tabela de findings estruturados diretamente na tela do seu console, sem realizar chamadas ou posts para as APIs do GitHub.
+* **📄 Arquivo de Revisão:** Além de exibir no console, o modo `--dry-run` gera automaticamente um arquivo **`review-summary.md`** na raiz do workspace com o relatório completo formatado em Markdown. Abra esse arquivo no seu editor ou em qualquer previewer de Markdown para uma visualização enriquecida dos achados.
+
+> **Nota:** O arquivo `review-summary.md` já está incluído no `.gitignore` padrão para não poluir seus commits.
 
 ---
 
@@ -335,3 +338,5 @@ OPENCODE_BIN=./mock-opencode.sh node dist/cli/index.js run --dry-run
 ```
 
 O orquestrador fará o checkout virtual, executará a validação de linhas alteradas contra o git diff local do seu branch atual, calculará as severidades e imprimirá no console a tabela consolidada de descobertas!
+
+Além disso, um arquivo **`review-summary.md`** será gerado na raiz do workspace com o relatório completo para análise visual.

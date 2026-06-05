@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import path from 'path';
 import { getOctokit } from '@actions/github';
 import { Finding, ReviewResult } from '../models/types.js';
 import { DiffCoordinateValidator } from '../core/diff-validator.js';
@@ -172,13 +173,28 @@ export async function publishReview(
   if (dryRun) {
     console.info('\n=== [DRY RUN] AI Review Summary ===');
     console.info(markdown);
+
+    // Monta o conteúdo completo do arquivo Markdown incluindo inline comments
+    let fileContent = markdown;
+
     if (inlineComments.length > 0) {
       console.info('\n--- Comentários Inline (Dry Run) ---');
+      fileContent += '\n\n---\n\n#### 💬 Comentários Inline\n\n';
+
       for (const comment of inlineComments) {
         console.info(`[Inline Comment] File: ${comment.path}, Line: ${comment.line}\nBody: ${comment.body.replace(/\n/g, ' ')}\n`);
+        fileContent += `- **\`${comment.path}\`** (linha ${comment.line}):\n${comment.body}\n\n`;
       }
     }
+
+    fileContent += '\n---\n\n> 📄 Gerado automaticamente pelo **Review Agent** em modo `dry-run`.\n';
+
+    // Salva o arquivo review-summary.md no diretório de trabalho
+    const outputPath = path.join(process.cwd(), 'review-summary.md');
+    await fs.writeFile(outputPath, fileContent, 'utf-8');
+
     console.info('===================================\n');
+    console.info(`📄 Arquivo de revisão salvo em: ${outputPath}`);
     return;
   }
 
