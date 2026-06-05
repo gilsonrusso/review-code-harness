@@ -86,7 +86,7 @@ review-agent/
 
 ## ⚙️ Arquivo de Configuração `.review-agent.yml`
 
-O arquivo de configuração deve ser mantido na raiz do repositório a ser revisado. Exemplo completo:
+O orquestrador criará automaticamente o arquivo de configuração `.review-agent.yml` na raiz do seu projeto caso ele não exista. Você só precisa criá-lo ou alterá-lo se quiser sobrescrever os valores padrão. Exemplo completo:
 
 ```yaml
 version: 1
@@ -97,7 +97,8 @@ review:
   maxRetries: 3 # Tentativas automáticas em caso de falha ou timeout do OpenCode
 
 output:
-  mode: both # Modos aceitos:
+  mode:
+    both # Modos aceitos:
     # - 'summary': publica apenas o comentário de resumo geral
     # - 'inline': publica apenas comentários nas linhas afetadas
     # - 'both': publica o resumo e os comentários inline juntos
@@ -139,79 +140,21 @@ Quando um desenvolvedor abre ou atualiza um Pull Request no seu repositório alv
 
 ## 🛠️ Como Configurar em Qualquer Repositório Alvo
 
-Para ativar o Review Agent no seu repositório (FastAPI, React, Spring, etc.), você possui duas alternativas simples que dispensam a compilação ou instalação do Node.js localmente:
+Para ativar o Review Agent no seu repositório (FastAPI, React, Spring, etc.), siga os dois passos simples abaixo:
 
-### Opção A: Inicialização Automática via Docker (Recomendado)
+### Passo 1: Inicialização Automática da Estrutura
 
-Você pode usar a própria imagem Docker oficial para criar automaticamente a árvore de arquivos e diretórios padrão no seu workspace atual:
+Você pode usar a própria imagem Docker oficial para criar automaticamente a árvore de arquivos e diretórios de Skills padrão no seu workspace atual:
 
 ```bash
 docker run --rm -v $PWD:/workspace ghcr.io/seu-usuario/review-agent:latest init
 ```
 
-Esse comando criará o arquivo `.review-agent.yml` e as pastas de exemplo sob `.opencode/skills/` contendo os templates de React e FastAPI.
+Esse comando criará o arquivo `.review-agent.yml` (opcional) e as pastas de exemplo sob `.opencode/skills/` contendo os templates para você customizar com as regras de negócio e stack tecnológica do seu repositório.
 
----
+### Passo 2: Criar o arquivo do workflow do GitHub Actions
 
-### Opção B: Configuração Manual
-
-Caso prefira configurar manualmente, siga os passos abaixo:
-
-#### Passo 1: Criar o arquivo de configurações `.review-agent.yml`
-
-Crie este arquivo na **raiz do seu repositório**:
-
-```yaml
-version: 1
-
-review:
-  max_findings: 20 # Limite de descobertas reportadas no PR
-  timeoutSeconds: 300 # Tempo limite (segundos) por análise da IA
-  maxRetries: 3 # Tentativas adicionais caso a CLI falhe
-
-output:
-  mode: both # 'summary' (apenas resumo), 'inline' (apenas inline) ou 'both' (ambos)
-```
-
-### Passo 2: Criar a estrutura de diretórios para Skills nativas do OpenCode
-
-Crie as habilidades (skills) que a engine nativa do OpenCode irá descobrir e aplicar automaticamente. Cada skill deve ficar em uma subpasta sob `.opencode/skills/<nome-da-skill>/SKILL.md` e iniciar obrigatoriamente com um cabeçalho YAML frontmatter.
-
-**Exemplo: `.opencode/skills/frontend-react/SKILL.md`**
-
-```markdown
----
-name: frontend-react
-description: Regras e padrões para desenvolvimento Frontend com React, TypeScript, assistant-ui e LangChain.
----
-# Frontend React + TypeScript & Assistant-UI Skill
-
-## Role
-
-Você é um desenvolvedor Frontend especialista em React (v19+), TypeScript, Vite e integração de interfaces de IA (chat) com a biblioteca **assistant-ui** e **LangChain**.
-
-... (regras de React e assistant-ui)
-```
-
-**Exemplo: `.opencode/skills/backend-fastapi/SKILL.md`**
-
-```markdown
----
-name: backend-fastapi
-description: Regras e padrões para desenvolvimento Backend com FastAPI, LangChain, LangGraph e Pydantic.
----
-# Backend FastAPI & LangChain Skill
-
-## Role
-
-Você é um desenvolvedor Backend especialista em FastAPI, LangChain e LangGraph.
-
-... (regras de FastAPI e LangGraph)
-```
-
-### Passo 3: Criar o arquivo do workflow do GitHub Actions
-
-Crie o arquivo `.github/workflows/review-agent.yml` no seu repositório:
+Crie o arquivo `.github/workflows/review-agent.yml` no seu repositório apontando para a nossa action:
 
 ```yaml
 name: Review Agent
@@ -229,19 +172,15 @@ jobs:
         with:
           fetch-depth: 0 # IMPORTANTE: Necessário para carregar o histórico de commits para que o diff funcione
 
-      - name: Run Review Agent Action
-        run: |
-          docker run --rm \
-            -v $PWD:/workspace \
-            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
-            -e GITHUB_REPOSITORY=${{ github.repository }} \
-            -e GITHUB_EVENT_PATH=/workspace/${{ github.event_path }} \
-            -e GOOGLE_GENERATIVE_AI_API_KEY=${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }} \
-            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-            -e ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }} \
-            -e OPENCODE_API_URL=${{ secrets.OPENCODE_API_URL }} \
-            -e OPENCODE_MODEL=${{ secrets.OPENCODE_MODEL }} \
-            ghcr.io/seu-usuario/review-agent:latest
+      - name: Code Reviewer Agent 🤖
+        uses: Digital-Analytics-Apps/ai-code-reviewer@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENCODE_API_URL: ${{ secrets.OPENCODE_API_URL }}
+          OPENCODE_MODEL: ${{ secrets.OPENCODE_MODEL }}
 ```
 
 ### Passo 4: Configurar as Variáveis de Ambiente e Segredos (Secrets)
@@ -249,30 +188,34 @@ jobs:
 Para que a execução no GitHub Actions (ou localmente) funcione com sucesso, certifique-se de configurar as seguintes chaves de API nos segredos do seu repositório (**Repository Secrets**):
 
 #### 🔑 Segredos Obrigatórios (Modelos de IA)
+
 Configure pelo menos **uma** das chaves abaixo de acordo com o provedor que deseja utilizar na IA do OpenCode:
-* `GOOGLE_GENERATIVE_AI_API_KEY`: Chave de API da Google GenAI (Gemini).
-* `OPENAI_API_KEY`: Chave de API da OpenAI.
-* `ANTHROPIC_API_KEY`: Chave de API da Anthropic (Claude).
+
+- `GOOGLE_GENERATIVE_AI_API_KEY`: Chave de API da Google GenAI (Gemini).
+- `OPENAI_API_KEY`: Chave de API da OpenAI.
+- `ANTHROPIC_API_KEY`: Chave de API da Anthropic (Claude).
 
 #### 🤖 Variáveis Automáticas (Fornecidas pelo GitHub Actions)
+
 As seguintes variáveis já são passadas de forma automática pelo runner do GitHub, portanto você **não** precisa criá-las manualmente em Secrets:
-* `GITHUB_TOKEN`: Utilizada para autenticar e criar os comentários e a revisão no pull request.
-* `GITHUB_REPOSITORY`: Nome do repositório no formato `owner/repo`.
-* `GITHUB_EVENT_PATH`: Caminho dos metadados do evento disparador (PR).
+
+- `GITHUB_TOKEN`: Utilizada para autenticar e criar os comentários e a revisão no pull request.
+- `GITHUB_REPOSITORY`: Nome do repositório no formato `owner/repo`.
+- `GITHUB_EVENT_PATH`: Caminho dos metadados do evento disparador (PR).
 
 #### ⚙️ Parâmetros Opcionais de Customização
-* `OPENCODE_MODEL`: Define explicitamente qual modelo de linguagem o OpenCode deve utilizar (ex: `google/gemini-2.5-flash`, `openai/gpt-4o-mini`, `anthropic/claude-3-5-sonnet-20241022`).
-* `OPENCODE_API_URL`: URL base customizada se você estiver conectando a um gateway ou proxy corporativo.
+
+- `OPENCODE_MODEL`: Define explicitamente qual modelo de linguagem o OpenCode deve utilizar (ex: `google/gemini-2.5-flash`, `openai/gpt-4o-mini`, `anthropic/claude-3-5-sonnet-20241022`).
+- `OPENCODE_API_URL`: URL base customizada se você estiver conectando a um gateway ou proxy corporativo.
 
 ---
-
-### 💻 Executar o Review Agent Localmente (Modo Dry-Run)
 
 ### 💻 Executar o Review Agent Localmente (Modo Dry-Run)
 
 Para facilitar a execução local no terminal do seu repositório sem precisar digitar comandos complexos do Docker, o projeto inclui um script auxiliar chamado `run-local.sh`.
 
 #### Passo 1: Crie o arquivo `.env`
+
 Na raiz do seu projeto alvo (onde você quer rodar a revisão), crie um arquivo `.env` contendo a sua chave de API e modelo preferido:
 
 ```env
@@ -281,6 +224,7 @@ OPENCODE_MODEL="google/gemini-2.5-flash"
 ```
 
 #### Passo 2: Execute o script auxiliar
+
 Aponte para o caminho do `run-local.sh` (que está no repositório do Review Agent) estando dentro da pasta do seu projeto. O script lerá o `.env` automaticamente e repassará tudo para o Docker:
 
 ```bash
@@ -288,15 +232,15 @@ chmod +x run-local.sh
 /caminho/para/review-code-harness/run-local.sh
 ```
 
-*(Por padrão, se executado sem argumentos, o script roda `run --dry-run --commits 2`)*. Você pode passar outros comandos ou flags livremente:
+_(Por padrão, se executado sem argumentos, o script roda `run --dry-run --commits 2`)_. Você pode passar outros comandos ou flags livremente:
 
 ```bash
 # Limitar a análise a 1 commit
 /caminho/para/review-code-harness/run-local.sh run --dry-run --commits 1
 ```
 
-* **O que acontece:** O Review Agent fará a checagem das regras locais contra o seu diff Git local do seu branch atual e imprimirá a tabela de findings estruturados diretamente na tela do seu console, sem realizar chamadas ou posts para as APIs do GitHub.
-* **📄 Arquivo de Revisão:** Além de exibir no console, o modo `--dry-run` gera automaticamente um arquivo **`review-summary.md`** na raiz do workspace com o relatório completo formatado em Markdown. Abra esse arquivo no seu editor ou em qualquer previewer de Markdown para uma visualização enriquecida dos achados.
+- **O que acontece:** O Review Agent fará a checagem das regras locais contra o seu diff Git local do seu branch atual e imprimirá a tabela de findings estruturados diretamente na tela do seu console, sem realizar chamadas ou posts para as APIs do GitHub.
+- **📄 Arquivo de Revisão:** Além de exibir no console, o modo `--dry-run` gera automaticamente um arquivo **`review-summary.md`** na raiz do workspace com o relatório completo formatado em Markdown. Abra esse arquivo no seu editor ou em qualquer previewer de Markdown para uma visualização enriquecida dos achados.
 
 > **Nota:** O arquivo `review-summary.md` já está incluído no `.gitignore` padrão para não poluir seus commits.
 
@@ -306,10 +250,10 @@ Em execuções locais (`--dry-run`), o orquestrador não possui a API do GitHub 
 
 Você pode **restringir** o escopo do que a IA vai analisar usando as flags abaixo na CLI:
 
-* `--commits <numero>`: Analisa apenas um número específico de commits recentes.
-  * *Exemplo:* `run --dry-run --commits 3` (avalia apenas os últimos 3 commits da branch atual)
-* `--base-branch <branch>`: Analisa contra uma branch de referência diferente da main.
-  * *Exemplo:* `run --dry-run --base-branch develop` (compara `origin/develop...HEAD`)
+- `--commits <numero>`: Analisa apenas um número específico de commits recentes.
+  - _Exemplo:_ `run --dry-run --commits 3` (avalia apenas os últimos 3 commits da branch atual)
+- `--base-branch <branch>`: Analisa contra uma branch de referência diferente da main.
+  - _Exemplo:_ `run --dry-run --base-branch develop` (compara `origin/develop...HEAD`)
 
 Você também pode fixar esse comportamento no seu `.review-agent.yml`:
 
@@ -328,10 +272,12 @@ review:
 ## 🛠️ Revisão Híbrida (Linters e Analisadores Estáticos Embutidos)
 
 A imagem Docker oficial do **Review Agent** vem pré-configurada com as principais ferramentas de análise estática de mercado para que a IA possa utilizá-las na revisão:
-* **Node.js, React & TypeScript**: `eslint` e `typescript` (disponibilizando o compilador `tsc` para checagem de tipos).
-* **Python**: `python3`, `pip3`, `venv`, `ruff` (linter/formatter ultra rápido em Rust) e `uv` (gerenciador de dependências de alto desempenho).
+
+- **Node.js, React & TypeScript**: `eslint` e `typescript` (disponibilizando o compilador `tsc` para checagem de tipos).
+- **Python**: `python3`, `pip3`, `venv`, `ruff` (linter/formatter ultra rápido em Rust) e `uv` (gerenciador de dependências de alto desempenho).
 
 ### Como a IA executa os Linters?
+
 Como o OpenCode possui acesso de leitura e execução de comandos Git/Bash locais (com as permissões seguras do sandbox configuradas), a IA pode optar por rodar comandos de validação física como `eslint` ou `ruff check` em arquivos do diff. Isso ajuda a evitar falsos positivos de sintaxe ou tipagem no relatório e permite que ela gere sugestões extremamente precisas baseadas em falhas estáticas reais.
 
 ---
