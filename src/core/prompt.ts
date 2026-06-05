@@ -15,7 +15,7 @@ Consulte as Habilidades (Skills) registradas no projeto utilizando a ferramenta 
 
 Analise exclusivamente o Pull Request atual.
 
-Você possui acesso ao workspace completo.
+Você possui acesso ao workspace completo. Como estamos em um ambiente de integração, sinta-se encorajado a usar a ferramenta de terminal nativa para rodar comandos de linters e checagem de tipos (ex: \`eslint\`, \`tsc\`, \`ruff check\`, \`python -m py_compile\`) nos arquivos modificados antes de reportar falhas. Use isso para fundamentar suas sugestões e evitar falsos positivos.
 
 Retorne EXCLUSIVAMENTE JSON.
 
