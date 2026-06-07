@@ -172,7 +172,11 @@ Formata e publica os feedbacks agregados no GitHub.
 * **Comportamento**:
   * Conta localmente as severidades para assegurar a integridade estatística.
   * Filtra ocorrências inline comparando com o `DiffCoordinateValidator`.
-  * Cria a revisão em lote utilizando `pulls.createReview` da API do GitHub, enviando os comentários inline juntamente com o resumo em uma transação única.
+  * Cria ou atualiza a revisão em lote utilizando a API do GitHub:
+    * **Deduplicação de Resumo**: O Markdown de resumo gerado por `formatFindingsMarkdown` injeta a tag de âncora `<!-- review-agent-summary-anchor -->`. Durante a publicação, busca-se por comentários anteriores que contenham esta tag via `issues.listComments` e, caso encontrados, utiliza-se `issues.updateComment` para editá-los em tempo real, mitigando resumos duplicados.
+    * **Deduplicação de Ocorrências Inline**: Busca os comentários inline já postados pelo bot através de `pulls.listReviewComments` e filtra novos comentários cujo arquivo, linha e assinatura sejam idênticos a ocorrências já existentes, prevenindo poluição visual por reenvio de feedbacks.
+    * Envia a revisão agregada contendo apenas os novos comentários inline associados ao resumo in-place.
+
 
 ---
 
