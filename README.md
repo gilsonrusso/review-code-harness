@@ -187,6 +187,11 @@ jobs:
           OPENCODE_MODEL: ${{ secrets.OPENCODE_MODEL }}
 ```
 
+> [!CAUTION]
+> **Aviso de Segurança Importante:**
+> Recomendamos usar estritamente o gatilho `pull_request` padrão. **Evite usar o gatilho `pull_request_target`** com o Review Agent em repositórios públicos. Como a IA do OpenCode possui acesso a ferramentas de execução de terminal (`bash` com permissões automáticas), um PR malicioso originado de um fork do repositório poderia injetar arquivos ou prompts customizados nas Skills para instruir a IA a exfiltrar Secrets do repositório principal se o workflow estivesse rodando sob o privilégio elevado de `pull_request_target`.
+
+
 ### Passo 4: Configurar as Variáveis de Ambiente e Segredos (Secrets)
 
 Para que a execução no GitHub Actions (ou localmente) funcione com sucesso, certifique-se de configurar as seguintes chaves de API nos segredos do seu repositório (**Repository Secrets**):

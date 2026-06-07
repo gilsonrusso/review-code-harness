@@ -108,11 +108,16 @@ export declare const ReviewResultSchema: z.ZodObject<{
     } | undefined;
 }>;
 /**
- * Extrai, analisa e valida a resposta da CLI do OpenCode.
+ * Varre o texto bruto buscando por blocos JSON delimitados por chaves {} que
+ * contenham a propriedade "findings". Retorna a string do bloco recortado.
  *
- * Utiliza um algoritmo robusto de balanceamento de chaves para localizar e recortar
- * o primeiro bloco JSON válido que envolva a chave "findings", suportando qualquer
- * texto explicativo ou bloco de formatação Markdown gerado ao redor do JSON pela IA.
+ * @param rawText - Texto de entrada contendo o JSON.
+ * @returns A string correspondente ao objeto JSON de findings.
+ * @throws Lança erro caso o bloco JSON não seja localizado.
+ */
+export declare function extractJsonBlock(rawText: string): string;
+/**
+ * Extrai, analisa e valida a resposta da CLI do OpenCode.
  *
  * @param rawText - Texto de saída bruto retornado pela CLI do OpenCode.
  * @returns O objeto ReviewResult contendo a lista estruturada de findings após validação Zod.

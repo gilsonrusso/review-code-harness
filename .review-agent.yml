@@ -1,10 +1,10 @@
 version: 1
 
-skills:
-  path: .skills
-
 review:
   max_findings: 20
+  timeoutSeconds: 300
+  maxRetries: 3
+  commits: all
 
 output:
-  format: github-pr
+  mode: both

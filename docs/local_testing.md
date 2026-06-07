@@ -52,11 +52,11 @@ Agora, vamos preparar o seu repositório pessoal de testes para receber o Review
    ```bash
    node /home/gilson-russo/development/professional/review-code-harness/dist/cli/index.js init
    ```
-   *Esse comando criará automaticamente a pasta `.skills/` (com templates de regras em markdown) e o arquivo de configurações `.review-agent.yml` na raiz do seu projeto alvo*.
+   *Esse comando criará automaticamente a pasta `.opencode/skills/` (com templates de regras em markdown) e o arquivo de configurações `.review-agent.yml` na raiz do seu projeto alvo*.
 
 4. **Registre as novas configurações no Git**:
    ```bash
-   git add .skills/ .review-agent.yml
+   git add .opencode/ .review-agent.yml
    git commit -m "chore: adicionar configuracoes do review-agent"
    ```
 

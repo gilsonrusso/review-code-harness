@@ -17,8 +17,13 @@ vi.mock('simple-git', () => {
 
 vi.mock('@actions/github', () => {
   const listFilesMock = vi.fn().mockResolvedValue({ data: [] });
+  const paginateMock = vi.fn().mockImplementation(async (method, params) => {
+    const res = await method(params);
+    return res.data;
+  });
   return {
     getOctokit: vi.fn().mockReturnValue({
+      paginate: paginateMock,
       rest: {
         pulls: {
           listFiles: listFilesMock

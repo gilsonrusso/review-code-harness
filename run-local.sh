@@ -1,10 +1,14 @@
 #!/bin/bash
 # Script para facilitar a execução local (dry-run) do Review Agent via Docker
 
-# 1. Tenta carregar as variáveis de ambiente do arquivo .env (se existir)
+# 1. Tenta carregar as variáveis de ambiente do arquivo .env (se existir) de forma portátil
 if [ -f .env ]; then
-  # Extrai apenas as linhas válidas, ignorando comentários
-  export $(grep -v '^#' .env | xargs -d '\n' 2>/dev/null)
+  while IFS= read -r line || [ -n "$line" ]; do
+    # Ignora comentários e linhas em branco
+    if [[ ! "$line" =~ ^# ]] && [[ ! -z "$line" ]]; then
+      export "$line"
+    fi
+  done < .env
 fi
 
 # 2. Define o modelo padrão caso não esteja configurado no ambiente

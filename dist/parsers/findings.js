@@ -28,28 +28,20 @@ export const ReviewResultSchema = z.object({
     }).optional()
 });
 /**
- * Extrai, analisa e valida a resposta da CLI do OpenCode.
+ * Varre o texto bruto buscando por blocos JSON delimitados por chaves {} que
+ * contenham a propriedade "findings". Retorna a string do bloco recortado.
  *
- * Utiliza um algoritmo robusto de balanceamento de chaves para localizar e recortar
- * o primeiro bloco JSON válido que envolva a chave "findings", suportando qualquer
- * texto explicativo ou bloco de formatação Markdown gerado ao redor do JSON pela IA.
- *
- * @param rawText - Texto de saída bruto retornado pela CLI do OpenCode.
- * @returns O objeto ReviewResult contendo a lista estruturada de findings após validação Zod.
- * @throws Lança erro caso o JSON não seja encontrado, esteja malformado ou não passe nas regras Zod.
+ * @param rawText - Texto de entrada contendo o JSON.
+ * @returns A string correspondente ao objeto JSON de findings.
+ * @throws Lança erro caso o bloco JSON não seja localizado.
  */
-export function parseFindings(rawText) {
-    const findingsIndex = rawText.indexOf('"findings"');
-    if (findingsIndex === -1) {
-        throw new Error('Não foi possível localizar a chave "findings" na resposta do OpenCode.');
-    }
-    // Algoritmo de balanceamento de chaves para encontrar o JSON mais externo que contém "findings"
+export function extractJsonBlock(rawText) {
     let firstBrace = rawText.indexOf('{');
-    let jsonString = '';
-    while (firstBrace !== -1 && firstBrace < findingsIndex) {
+    while (firstBrace !== -1) {
         let depth = 0;
         let inString = false;
         let escape = false;
+        let foundEnd = -1;
         for (let i = firstBrace; i < rawText.length; i++) {
             const char = rawText[i];
             if (inString) {
@@ -73,22 +65,31 @@ export function parseFindings(rawText) {
                 else if (char === '}') {
                     depth--;
                     if (depth === 0) {
-                        if (i > findingsIndex) {
-                            jsonString = rawText.slice(firstBrace, i + 1);
-                            break;
-                        }
+                        foundEnd = i;
+                        break;
                     }
                 }
             }
         }
-        if (jsonString) {
-            break;
+        if (foundEnd !== -1) {
+            const candidate = rawText.slice(firstBrace, foundEnd + 1);
+            if (candidate.includes('"findings"')) {
+                return candidate.trim();
+            }
         }
         firstBrace = rawText.indexOf('{', firstBrace + 1);
     }
-    if (!jsonString) {
-        throw new Error('Não foi possível localizar o bloco JSON estruturado de findings na resposta do OpenCode.');
-    }
+    throw new Error('Não foi possível localizar o bloco JSON estruturado de findings na resposta do OpenCode.');
+}
+/**
+ * Extrai, analisa e valida a resposta da CLI do OpenCode.
+ *
+ * @param rawText - Texto de saída bruto retornado pela CLI do OpenCode.
+ * @returns O objeto ReviewResult contendo a lista estruturada de findings após validação Zod.
+ * @throws Lança erro caso o JSON não seja encontrado, esteja malformado ou não passe nas regras Zod.
+ */
+export function parseFindings(rawText) {
+    const jsonString = extractJsonBlock(rawText);
     try {
         const parsedJson = JSON.parse(jsonString);
         const validated = ReviewResultSchema.safeParse(parsedJson);
