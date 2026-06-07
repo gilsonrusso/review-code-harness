@@ -90,6 +90,8 @@ ${summaryTable}
 #### 🔍 Detalhes das Ocorrências
 
 ${detailsTable}
+
+<!-- review-agent-summary-anchor -->
 `;
 }
 /**
@@ -199,29 +201,94 @@ export async function publishReview(reviewResult, mode, validator, dryRun = fals
     }
     const finalCommitSha = commitSha || eventCommitSha || process.env.GITHUB_SHA;
     const octokit = getOctokit(token);
-    if ((mode === 'inline' || mode === 'both') && finalCommitSha && inlineComments.length > 0) {
-        console.info(`Publicando Review no PR #${pullNumber} de ${owner}/${repo} com ${inlineComments.length} comentários inline...`);
-        // Envia o comentário de resumo e todos os comentários inline de uma só vez
+    // 1. Buscar se existe um review anterior com a âncora do resumo
+    let existingSummaryReviewId;
+    try {
+        const { data: reviews } = await octokit.rest.pulls.listReviews({
+            owner,
+            repo,
+            pull_number: pullNumber,
+            per_page: 100
+        });
+        const summaryReview = reviews.find(r => r.body?.includes('<!-- review-agent-summary-anchor -->'));
+        if (summaryReview) {
+            existingSummaryReviewId = summaryReview.id;
+        }
+    }
+    catch (err) {
+        console.warn(`Aviso: Não foi possível listar reviews existentes: ${err.message}`);
+    }
+    // 2. Buscar comentários inline existentes para deduplicação
+    const filteredInlineComments = [];
+    if (inlineComments.length > 0) {
+        try {
+            const { data: existingInlines } = await octokit.rest.pulls.listReviewComments({
+                owner,
+                repo,
+                pull_number: pullNumber,
+                per_page: 100
+            });
+            for (const comment of inlineComments) {
+                const isDuplicate = existingInlines.some(exist => exist.path === comment.path &&
+                    exist.line === comment.line &&
+                    exist.body?.includes(comment.body.split('\n')[0]));
+                if (!isDuplicate) {
+                    filteredInlineComments.push(comment);
+                }
+                else {
+                    console.info(`Deduplicação: Comentário inline em ${comment.path}:${comment.line} já existe. Pulando.`);
+                }
+            }
+        }
+        catch (err) {
+            console.warn(`Aviso: Não foi possível listar comentários inline existentes: ${err.message}. Enviando todos.`);
+            filteredInlineComments.push(...inlineComments);
+        }
+    }
+    // 3. Publicar ou atualizar a revisão
+    if (existingSummaryReviewId !== undefined) {
+        console.info(`Atualizando comentário de resumo existente (Review ID: ${existingSummaryReviewId})...`);
+        try {
+            await octokit.rest.pulls.updateReview({
+                owner,
+                repo,
+                pull_number: pullNumber,
+                review_id: existingSummaryReviewId,
+                body: (mode === 'both' || mode === 'summary') ? markdown : 'Resumo das revisões inline concluído.'
+            });
+        }
+        catch (err) {
+            console.warn(`Aviso: Falha ao atualizar review existente (${err.message}). Criando novo.`);
+            existingSummaryReviewId = undefined; // Força fallback para criação
+        }
+    }
+    if (existingSummaryReviewId === undefined) {
+        console.info(`Publicando nova revisão geral no PR #${pullNumber} de ${owner}/${repo}...`);
         await octokit.rest.pulls.createReview({
             owner,
             repo,
             pull_number: pullNumber,
             commit_id: finalCommitSha,
             event: 'COMMENT',
-            body: mode === 'both' ? markdown : 'Resumo das revisões inline concluído.',
-            comments: inlineComments
+            body: (mode === 'both' || mode === 'summary') ? markdown : 'Resumo das revisões inline concluído.',
+            comments: (mode === 'inline' || mode === 'both') ? filteredInlineComments : []
         });
     }
     else {
-        console.info(`Publicando Comentário Geral no PR #${pullNumber} de ${owner}/${repo}...`);
-        // Apenas resumo geral ou não existem comentários inline a publicar
-        await octokit.rest.pulls.createReview({
-            owner,
-            repo,
-            pull_number: pullNumber,
-            event: 'COMMENT',
-            body: markdown
-        });
+        // Se o resumo foi atualizado in-place, mas temos novos comentários inline (não duplicados),
+        // nós os enviamos em uma nova revisão separada.
+        if ((mode === 'inline' || mode === 'both') && finalCommitSha && filteredInlineComments.length > 0) {
+            console.info(`Publicando ${filteredInlineComments.length} novos comentários inline em nova revisão complementar...`);
+            await octokit.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number: pullNumber,
+                commit_id: finalCommitSha,
+                event: 'COMMENT',
+                body: 'Revisão complementar com novas ocorrências encontradas.',
+                comments: filteredInlineComments
+            });
+        }
     }
     console.info('Review publicado com sucesso no Pull Request!');
 }

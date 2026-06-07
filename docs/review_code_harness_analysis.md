@@ -81,9 +81,75 @@ A extração de JSON do output e a validação do Zod estão duplicadas em dois 
 ### 4. Alerta de Segurança: Riscos com `pull_request_target`
 O manual de configuração sugere usar o gatilho `pull_request`. Caso o time decida no futuro alterar para `pull_request_target` (para permitir revisões em forks com secrets ativos), a LLM terá acesso a secrets do repositório principal e, através de injeção de prompt nas Skills, um atacante externo poderia fazer a LLM utilizar a ferramenta `bash` configurada no sandbox (via `permission.bash: 'allow'`) para enviar segredos do repositório principal a servidores externos.
 
+### 5. Duplicação de Comentários e Resumos em Pushes Subsequentes (PR Updates)
+Toda vez que o usuário envia commits adicionais para um PR, o workflow roda novamente sobre todo o diff. Como o `publisher.ts` sempre chama `pulls.createReview` sem verificar revisões ou comentários passados:
+* **Impacto**: O histórico do PR fica poluído com múltiplos comentários de resumo repetidos (uma tabela nova a cada push). Além disso, a IA repete os mesmos comentários inline em linhas que o desenvolvedor já revisou ou resolveu (caso o código não tenha mudado de fato ali).
+* **Solução**: Implementar busca de comentários com âncora oculta (`<!-- review-agent-summary-anchor -->`) para editar o resumo em vez de duplicá-lo, além de buscar comentários inline já existentes via API do GitHub para não reenviar duplicados.
+
 ---
 
 ## 🛠️ Proposta de Correção e Refatoração (Exemplos de Diffs)
+
+### Atualização In-Place do Resumo de Revisão (Deduplicação do Resumo)
+Para manter apenas um único resumo ativo e atualizá-lo a cada push:
+```diff
+# Adicionar âncora oculta no corpo do Markdown gerado
+export function formatFindingsMarkdown(findings: Finding[], summary: SeveritySummary): string {
+  // ...
+  return `### 🤖 AI Review Summary
+  
+  ${summaryTable}
+  
+  ---
+  
+  #### 🔍 Detalhes das Ocorrências
+  
+  ${detailsTable}
+  
++ <!-- review-agent-summary-anchor -->
+  `;
+}
+```
+E no fluxo de publicação de review:
+```typescript
+// Buscar comentários existentes no PR e atualizar se encontrar a âncora
+const { data: comments } = await octokit.rest.issues.listComments({
+  owner,
+  repo,
+  issue_number: pullNumber
+});
+
+const existingSummary = comments.find(c => c.body?.includes('<!-- review-agent-summary-anchor -->'));
+if (existingSummary) {
+  await octokit.rest.issues.updateComment({
+    owner,
+    repo,
+    comment_id: existingSummary.id,
+    body: markdown
+  });
+} else {
+  // publica um novo comentário de resumo
+}
+```
+
+### Deduplicação de Comentários Inline (Evitar repostar o que já foi enviado)
+```typescript
+// Obter comentários inline já publicados pelo bot no PR
+const { data: existingInlines } = await octokit.rest.pulls.listReviewComments({
+  owner,
+  repo,
+  pull_number: pullNumber
+});
+
+const filteredComments = inlineComments.filter(newComment => {
+  return !existingInlines.some(exist => 
+    exist.path === newComment.path &&
+    exist.line === newComment.line &&
+    exist.body.includes(newComment.title)
+  );
+});
+// Envia apenas o filteredComments
+```
 
 ### Correção da Paginação no `diff-validator.ts`
 ```diff
