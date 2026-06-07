@@ -32,9 +32,21 @@ Para guiar o desenvolvimento do **Review Agent** e facilitar a colaboração de 
 * **Decisão**: A CLI do OpenCode é invocada usando `execa` com `stdin: 'ignore'`, redirecionamento de logs de diagnóstico (`stderr`) direto via pipe e streaming em tempo real do stdout (enquanto acumula os dados em buffers). Adicionalmente, caso não exista um arquivo `opencode.json` local, um arquivo temporário com permissões de auto-approve (`allow` para comandos de bash e edições de arquivo) é criado na raiz do workspace.
 * **Motivo**: Em ambientes não interativos (como pipelines de CI/CD ou containers sem TTY), a execução do OpenCode pode congelar indefinidamente se a CLI tentar solicitar confirmações ou interações do usuário. Configurar permissões automáticas e isolar o `stdin` previne travamentos e timeouts silenciosos, enquanto o streaming imediato das saídas evita logs truncados ou ausência de feedback em execuções demoradas.
 
-### 8. Tolerância a Nulidade em Campos Opcionais da LLM (Nullish Schema Resolution)
+### 7. Tolerância a Nulidade em Campos Opcionais da LLM (Nullish Schema Resolution)
 * **Decisão**: A validação Zod de campos estruturados opcionais, como `suggestion`, é configurada para aceitar strings, `null` ou `undefined` via `.nullish().transform(val => val ?? undefined)`, mapeando as nulidades implicitamente para `undefined`.
 * **Motivo**: Modelos de linguagem (como `gemini-2.5-flash`) costumam gerar explicitamente `"suggestion": null` no JSON em vez de simplesmente omitir o campo. Permitir e normalizar valores nulos localmente no parser previne falhas catastróficas de validação mantendo a compatibilidade estrita com a tipagem TypeScript (`suggestion?: string`).
+
+### 8. Paginação de Arquivos via API do GitHub
+* **Decisão**: A recuperação de arquivos modificados via API do GitHub para fallback de shallow clones utiliza `octokit.paginate` em vez de apenas consultar `pulls.listFiles`.
+* **Motivo**: A chamada padrão de listagem limita-se a 30 arquivos por página. Paginar de forma explícita garante consistência total da validação mesmo em Pull Requests de grande escala, evitando que comentários válidos sejam omitidos.
+
+### 9. Sanitização de Workspace contra Abortos e Cancelamentos (Signal Trapping)
+* **Decisão**: O ciclo de vida do subprocesso CLI do OpenCode possui tratamento ativo de interrupções de processo (`SIGINT`/`SIGTERM`) para limpar e restaurar a configuração do workspace (`opencode.json`).
+* **Motivo**: Se a GitHub Action for cancelada pelo usuário ou estourar o timeout global do workflow, evitamos que o arquivo temporário de sandbox fique poluindo fisicamente o repositório do desenvolvedor, garantindo a integridade dos commits futuros.
+
+### 10. Prompting Baseado em JSON Schema
+* **Decisão**: A instrução estruturada passada no prompt (`buildInstructions`) contém uma especificação formal em formato JSON Schema Draft-07 detalhando as propriedades, severidades permitidas e campos obrigatórios.
+* **Motivo**: LLMs reduzem consideravelmente a taxa de erros de sintaxe ou de chaves ausentes quando instruídas usando o formato estruturado do JSON Schema, em vez de descrições textuais livres de chaves.
 
 ---
 

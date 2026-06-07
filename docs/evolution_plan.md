@@ -32,13 +32,13 @@ Este documento consolida o plano de desenvolvimento e maturidade do **Review Age
 
 ---
 
-### Fase 3: Revisão Híbrida (Linter Local + IA) (Pré-configurado / Em andamento)
+### Fase 3: Revisão Híbrida (Linter Local + IA) (Implementado)
 *   **Objetivo**: Cruzar análises de analisadores estáticos tradicionais (Linters/Compiladores) com o poder explicativo da IA.
 *   **Ações Concluídas**:
     *   A imagem Docker final do Review Agent foi enriquecida com analisadores estáticos prontos para uso:
         *   **Node.js / React / TypeScript**: `eslint` e `typescript` (`tsc` global).
         *   **Python**: `python3`, `pip3`, `venv`, `ruff` (linter/formatter ultra rápido em Rust) e `uv` (gerenciador de dependências de alto desempenho).
-    *   **Próximos Passos**: Instruir a IA através de prompts ou custom tools na pasta `.opencode/tools/` a invocar esses linters locais para validar erros sintáticos ou de tipos reais antes de gerar sugestões estruturadas.
+    *   **Prompt Híbrido**: O prompt mestre (`src/core/prompt.ts`) foi atualizado com uma diretiva específica encorajando a IA a utilizar sua capacidade de acesso ao terminal (shell) para disparar esses linters/formatadores diretamente no código do PR, baseando assim seus achados (findings) em erros reais de AST/tipagem, e não apenas em análises estáticas contextuais.
 
 ---
 

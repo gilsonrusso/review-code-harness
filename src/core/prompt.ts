@@ -15,28 +15,56 @@ Consulte as Habilidades (Skills) registradas no projeto utilizando a ferramenta 
 
 Analise exclusivamente o Pull Request atual.
 
-Você possui acesso ao workspace completo.
+Você possui acesso ao workspace completo. Como estamos em um ambiente de integração, sinta-se encorajado a usar a ferramenta de terminal nativa para rodar comandos de linters e checagem de tipos (ex: \`eslint\`, \`tsc\`, \`ruff check\`, \`python -m py_compile\`) nos arquivos modificados antes de reportar falhas. Use isso para fundamentar suas sugestões e evitar falsos positivos.
 
-Retorne EXCLUSIVAMENTE JSON.
-
-Formato obrigatório:
+Retorne EXCLUSIVAMENTE um objeto JSON válido que obedeça estritamente ao seguinte esquema JSON (JSON Schema):
 
 {
-  "findings": [
-    {
-      "severity": "critical" | "high" | "medium" | "low" | "info",
-      "file": "caminho/do/arquivo",
-      "line": 123,
-      "title": "Título curto e direto",
-      "description": "Explicação detalhada do problema",
-      "suggestion": "Sugestão de correção (opcional)"
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { 
+            "type": "string", 
+            "enum": ["critical", "high", "medium", "low", "info"],
+            "description": "Nível de severidade do problema encontrado"
+          },
+          "file": { 
+            "type": "string", 
+            "description": "Caminho relativo do arquivo contendo o problema (ex: src/auth.ts)" 
+          },
+          "line": { 
+            "type": "integer", 
+            "minimum": 1,
+            "description": "Número da linha física (1-indexed) onde o problema se inicia" 
+          },
+          "title": { 
+            "type": "string", 
+            "description": "Título curto, claro e direto do achado" 
+          },
+          "description": { 
+            "type": "string", 
+            "description": "Explicação detalhada e contextualizada do problema" 
+          },
+          "suggestion": { 
+            "type": "string", 
+            "description": "Sugestão técnica opcional contendo trechos de código para correção" 
+          }
+        },
+        "required": ["severity", "file", "line", "title", "description"]
+      }
     }
-  ]
+  },
+  "required": ["findings"]
 }
 
-Não produza markdown.
-Não produza texto explicativo antes ou depois do JSON.
-Não produza comentários fora do JSON.
+Não produza blocos markdown (ex: \`\`\`json ... \`\`\`) adicionais fora do JSON.
+Não produza texto explicativo antes ou depois do objeto JSON.
+Não inclua comentários internos no JSON.
 `;
 }
 export default buildInstructions;

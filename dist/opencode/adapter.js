@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { execa } from 'execa';
-import { ReviewResultSchema } from '../parsers/findings.js';
+import { extractJsonBlock, parseFindings } from '../parsers/findings.js';
 /**
  * Adaptador de Integração com o OpenCode (OpenCodeAdapter).
  *
@@ -70,6 +70,26 @@ export class OpenCodeAdapter {
         catch (err) {
             console.warn(`Aviso: Erro ao preparar arquivo opencode.json: ${err.message}`);
         }
+        const cleanup = async () => {
+            try {
+                if (configExists && originalConfigContent !== null) {
+                    await fs.writeFile(configPath, originalConfigContent, 'utf-8');
+                }
+                else {
+                    await fs.rm(configPath, { force: true });
+                }
+            }
+            catch (cleanupError) {
+                console.warn(`Aviso: Falha ao limpar/restaurar o arquivo opencode.json: ${cleanupError.message}`);
+            }
+        };
+        const handleSignal = async (signal) => {
+            console.warn(`\nRecebido sinal ${signal}. Executando cleanup do opencode.json...`);
+            await cleanup();
+            process.exit(1);
+        };
+        process.on('SIGINT', handleSignal);
+        process.on('SIGTERM', handleSignal);
         // 2. Execution Phase (with Retries)
         try {
             let attempt = 0;
@@ -117,17 +137,9 @@ export class OpenCodeAdapter {
         }
         finally {
             // 3. Restore / Cleanup Phase
-            try {
-                if (configExists && originalConfigContent !== null) {
-                    await fs.writeFile(configPath, originalConfigContent, 'utf-8');
-                }
-                else {
-                    await fs.rm(configPath, { force: true });
-                }
-            }
-            catch (cleanupError) {
-                console.warn(`Aviso: Falha ao limpar/restaurar o arquivo opencode.json: ${cleanupError.message}`);
-            }
+            process.off('SIGINT', handleSignal);
+            process.off('SIGTERM', handleSignal);
+            await cleanup();
         }
     }
     /**
@@ -139,56 +151,7 @@ export class OpenCodeAdapter {
      * @throws Lança erro caso não consiga encontrar a chave "findings" ou as chaves equivalentes.
      */
     extractJson(rawOutput) {
-        const findingsIndex = rawOutput.indexOf('"findings"');
-        if (findingsIndex === -1) {
-            throw new Error('Não foi possível localizar a chave "findings" na resposta do OpenCode.');
-        }
-        let firstBrace = rawOutput.indexOf('{');
-        let jsonString = '';
-        while (firstBrace !== -1 && firstBrace < findingsIndex) {
-            let depth = 0;
-            let inString = false;
-            let escape = false;
-            for (let i = firstBrace; i < rawOutput.length; i++) {
-                const char = rawOutput[i];
-                if (inString) {
-                    if (escape) {
-                        escape = false;
-                    }
-                    else if (char === '\\') {
-                        escape = true;
-                    }
-                    else if (char === '"') {
-                        inString = false;
-                    }
-                }
-                else {
-                    if (char === '"') {
-                        inString = true;
-                    }
-                    else if (char === '{') {
-                        depth++;
-                    }
-                    else if (char === '}') {
-                        depth--;
-                        if (depth === 0) {
-                            if (i > findingsIndex) {
-                                jsonString = rawOutput.slice(firstBrace, i + 1);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            if (jsonString) {
-                break;
-            }
-            firstBrace = rawOutput.indexOf('{', firstBrace + 1);
-        }
-        if (!jsonString) {
-            throw new Error('Não foi possível localizar o bloco JSON estruturado de findings na resposta do OpenCode.');
-        }
-        return jsonString.trim();
+        return extractJsonBlock(rawOutput);
     }
     /**
      * Valida a conformidade estrutural do JSON recebido contra as regras Zod.
@@ -198,23 +161,7 @@ export class OpenCodeAdapter {
      * @throws Lança erro se o JSON for inválido ou se houver campos obrigatórios violados.
      */
     validate(jsonStr) {
-        try {
-            const parsedJson = JSON.parse(jsonStr);
-            const validated = ReviewResultSchema.safeParse(parsedJson);
-            if (!validated.success) {
-                const formattedErrors = validated.error.errors
-                    .map(err => `[${err.path.join('.')}]: ${err.message}`)
-                    .join(', ');
-                throw new Error(`Validação de findings falhou: ${formattedErrors}`);
-            }
-            return validated.data;
-        }
-        catch (error) {
-            if (error instanceof SyntaxError) {
-                throw new Error(`Resposta do OpenCode contém JSON inválido: ${error.message}`);
-            }
-            throw error;
-        }
+        return parseFindings(jsonStr);
     }
 }
 export default OpenCodeAdapter;

@@ -29,8 +29,8 @@ export function parsePatchToLines(patch: string): Set<number> {
       continue;
     }
 
-    // Linhas adicionadas (+), linhas de contexto (iniciadas com espaço) ou linhas em branco no hunk
-    if (line.startsWith('+') || line.startsWith(' ') || line.trim() === '') {
+    // Linhas adicionadas (+), de contexto ( ) ou em branco, apenas se já estivermos dentro de um Hunk
+    if (currentLine > 0 && (line.startsWith('+') || line.startsWith(' ') || line.trim() === '')) {
       lines.add(currentLine);
       currentLine++;
     }
@@ -144,10 +144,11 @@ export class DiffCoordinateValidator {
       try {
         console.info(`- Buscando arquivos modificados via API do GitHub para o PR #${this.gitMetadata.pullNumber}`);
         const octokit = getOctokit(this.token);
-        const { data: files } = await octokit.rest.pulls.listFiles({
+        const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
           owner: this.gitMetadata.owner,
           repo: this.gitMetadata.repo,
-          pull_number: this.gitMetadata.pullNumber
+          pull_number: this.gitMetadata.pullNumber,
+          per_page: 100
         });
 
         for (const file of files) {
