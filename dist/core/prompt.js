@@ -62,6 +62,14 @@ Retorne EXCLUSIVAMENTE um objeto JSON válido que obedeça estritamente ao segui
   "required": ["findings"]
 }
 
+Caso você analise as modificações do Pull Request e não encontre nenhum bug, problema de segurança ou violação de Skill, você DEVE retornar estritamente o objeto JSON contendo o array de findings vazio:
+
+{
+  "findings": []
+}
+
+Nunca responda com textos livres explicativos, saudações ou mensagens de aprovação fora desse formato.
+
 Não produza blocos markdown (ex: \`\`\`json ... \`\`\`) adicionais fora do JSON.
 Não produza texto explicativo antes ou depois do objeto JSON.
 Não inclua comentários internos no JSON.

@@ -89,8 +89,8 @@ export function extractJsonBlock(rawText) {
  * @throws Lança erro caso o JSON não seja encontrado, esteja malformado ou não passe nas regras Zod.
  */
 export function parseFindings(rawText) {
-    const jsonString = extractJsonBlock(rawText);
     try {
+        const jsonString = extractJsonBlock(rawText);
         const parsedJson = JSON.parse(jsonString);
         const validated = ReviewResultSchema.safeParse(parsedJson);
         if (!validated.success) {
@@ -102,6 +102,10 @@ export function parseFindings(rawText) {
         return validated.data;
     }
     catch (error) {
+        if (error.message && error.message.includes('Não foi possível localizar o bloco JSON') && !rawText.includes('"findings"')) {
+            console.warn('⚠️ Aviso: A IA não retornou um JSON de findings. Assumindo que nenhum erro foi encontrado.');
+            return { findings: [] };
+        }
         if (error instanceof SyntaxError) {
             throw new Error(`Resposta do OpenCode contém JSON inválido: ${error.message}`);
         }

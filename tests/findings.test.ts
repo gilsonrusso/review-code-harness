@@ -146,4 +146,15 @@ Algum texto final.`;
     }`; // Chaves inválidas
     expect(() => parseFindings(rawInput)).toThrow();
   });
+
+  it('deve retornar findings vazios se o bloco JSON de findings não for localizado (texto conversacional)', () => {
+    const rawInput = 'Análise concluída com sucesso. Nenhum problema foi encontrado no código fornecido!';
+    const parsed = parseFindings(rawInput);
+    expect(parsed.findings).toEqual([]);
+  });
+
+  it('deve retornar findings vazios se a entrada for uma string vazia', () => {
+    const parsed = parseFindings('');
+    expect(parsed.findings).toEqual([]);
+  });
 });
