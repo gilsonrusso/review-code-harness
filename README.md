@@ -176,6 +176,32 @@ jobs:
         with:
           fetch-depth: 0 # IMPORTANTE: Necessário para carregar o histórico de commits para que o diff funcione
 
+      # Opcional/Recomendado: Se o seu linter de projeto (ex: ESLint) requer pacotes instalados localmente para rodar
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json # Ajuste para a pasta do seu package.json
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend # Ajuste para a pasta do seu package.json
+          npm ci
+
+      # Se o seu projeto tiver dependências Python no backend
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          uv sync
+
       - name: Code Reviewer Agent 🤖
         uses: Digital-Analytics-Apps/ai-code-reviewer@main
         env:
@@ -186,6 +212,10 @@ jobs:
           OPENCODE_API_URL: ${{ secrets.OPENCODE_API_URL }}
           OPENCODE_MODEL: ${{ secrets.OPENCODE_MODEL }}
 ```
+
+> [!IMPORTANT]
+> **Nota sobre Dependências de Linters:**
+> Caso a IA tente rodar ferramentas como `eslint` localmente no repositório e suas configurações façam imports de pacotes de dependências (como `@eslint/js`), certifique-se de configurar e instalar os módulos no runner (ex: `npm ci`) antes da execução do agente. O workspace é mapeado por completo para dentro do contêiner Docker do agente, garantindo que o lint encontre a pasta `node_modules` correspondente.
 
 > [!CAUTION]
 > **Aviso de Segurança Importante:**
