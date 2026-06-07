@@ -24,9 +24,9 @@ Para guiar o desenvolvimento do **Review Agent** e facilitar a colaboração de 
 * **Decisão**: O orquestrador agrupa o sumário Markdown geral e todos os comentários inline validados em uma única chamada de API (`pulls.createReview`).
 * **Motivo**: A criação individualizada de comentários de revisão gera grande consumo de limites de taxa (rate limits) na API e bombardeia os desenvolvedores com notificações repetitivas. A publicação agrupada simula a experiência de ferramentas de mercado (como o CodeRabbit), gerando uma única revisão consolidada e atômica.
 
-### 5. Extração de JSON Resiliente por Hunk/Brace-Matching
-* **Decisão**: Implementação de um algoritmo determinístico de correspondência de chaves (`{}`) para extrair o objeto JSON que engloba a propriedade `"findings"`, em vez de recorrer a Regex ou cortes estáticos de texto.
-* **Motivo**: Respostas de LLMs frequentemente contêm textos explicativos, saudações ou blocos markdown (```json ... ```). O parse por balanceamento de parênteses garante a extração correta e à prova de quebras da string JSON mais externa, ignorando chaves adicionais precedentes (ex: `"summary"`).
+### 5. Extração de JSON Resiliente por Hunk/Brace-Matching e Fallback de Resiliência (Estratégia A)
+* **Decisão**: Implementação de um algoritmo determinístico de correspondência de chaves (`{}`) para extrair o objeto JSON que engloba a propriedade `"findings"`, em vez de recorrer a Regex ou cortes estáticos de texto. Adicionalmente, caso o bloco JSON não seja localizado e o texto retornado pela IA seja puramente conversacional (sem a presença da substring `"findings"`), o parser intercepta o erro e retorna de forma resiliente o objeto `{ findings: [] }`. Se o preâmbulo contiver `"findings"` mas falhar no balanceamento de chaves, o erro é propagado por ser considerado um JSON incompleto ou truncado.
+* **Motivo**: Respostas de LLMs frequentemente contêm textos explicativos, saudações ou blocos markdown (```json ... ```). O parse por balanceamento de parênteses garante a extração correta e à prova de quebras da string JSON mais externa, ignorando chaves adicionais precedentes (ex: `"summary"`). O fallback para respostas puramente conversacionais previne quebras catastróficas na execução do CI/CD quando a IA responde de forma bem-sucedida em linguagem natural.
 
 ### 6. Isolamento de Stdin e Streaming de Logs do Subprocesso
 * **Decisão**: A CLI do OpenCode é invocada usando `execa` com `stdin: 'ignore'`, redirecionamento de logs de diagnóstico (`stderr`) direto via pipe e streaming em tempo real do stdout (enquanto acumula os dados em buffers). Adicionalmente, caso não exista um arquivo `opencode.json` local, um arquivo temporário com permissões de auto-approve (`allow` para comandos de bash e edições de arquivo) é criado na raiz do workspace.
@@ -41,12 +41,12 @@ Para guiar o desenvolvimento do **Review Agent** e facilitar a colaboração de 
 * **Motivo**: A chamada padrão de listagem limita-se a 30 arquivos por página. Paginar de forma explícita garante consistência total da validação mesmo em Pull Requests de grande escala, evitando que comentários válidos sejam omitidos.
 
 ### 9. Sanitização de Workspace contra Abortos e Cancelamentos (Signal Trapping)
-* **Decisão**: O ciclo de vida do subprocesso CLI do OpenCode possui tratamento ativo de interrupções de processo (`SIGINT`/`SIGTERM`) para limpar e restaurar a configuração do workspace (`opencode.json`).
+* **Decisão**: O ciclo de vida do subprocesso CLI do OpenCode possui tratamento active de interrupções de processo (`SIGINT`/`SIGTERM`) para limpar e restaurar a configuração do workspace (`opencode.json`).
 * **Motivo**: Se a GitHub Action for cancelada pelo usuário ou estourar o timeout global do workflow, evitamos que o arquivo temporário de sandbox fique poluindo fisicamente o repositório do desenvolvedor, garantindo a integridade dos commits futuros.
 
-### 10. Prompting Baseado em JSON Schema
-* **Decisão**: A instrução estruturada passada no prompt (`buildInstructions`) contém uma especificação formal em formato JSON Schema Draft-07 detalhando as propriedades, severidades permitidas e campos obrigatórios.
-* **Motivo**: LLMs reduzem consideravelmente a taxa de erros de sintaxe ou de chaves ausentes quando instruídas usando o formato estruturado do JSON Schema, em vez de descrições textuais livres de chaves.
+### 10. Prompting Baseado em JSON Schema e Resposta Vazia Padronizada (Estratégia B)
+* **Decisão**: A instrução estruturada passada no prompt (`buildInstructions`) contém uma especificação formal em formato JSON Schema Draft-07 detalhando as propriedades, severidades permitidas e campos obrigatórios. Também instrui explicitamente a IA a retornar exatamente `{ "findings": [] }` caso não seja encontrado nenhum problema de código ou violação de Skill no Pull Request.
+* **Motivo**: LLMs reduzem consideravelmente a taxa de erros de sintaxe ou de chaves ausentes quando instruídas usando o formato estruturado do JSON Schema, em vez de descrições textuais livres de chaves. Padronizar o comportamento de retorno para casos de sucesso (zero findings) evita variações na saída e reduz o risco de quebras inesperadas no parsing.
 
 ---
 
