@@ -189,6 +189,19 @@ jobs:
           cd frontend # Ajuste para a pasta do seu package.json
           npm ci
 
+      # Se o seu projeto tiver dependências Python no backend
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          uv sync
+
       - name: Code Reviewer Agent 🤖
         uses: Digital-Analytics-Apps/ai-code-reviewer@main
         env:

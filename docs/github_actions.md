@@ -55,7 +55,28 @@ jobs:
           cd frontend # Ou a pasta onde está o frontend
           npm ci
 
-      # 3. Executa o contêiner Docker do Review Agent
+      # 3. Instala dependências do Backend (se houver)
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12' # Ajuste para a versão do seu backend
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock" # Ajuste para o nome do seu lockfile
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend # Ajuste para a pasta do seu backend
+          uv sync
+
+      # pode usar as duas formas abaixo de executar o Review Agent:
+      # 4. Executa o contêiner Docker do Review Agent
+      - name: Code Reviewer Agent 🤖
+        uses: gilsonrusso/review-code-harness@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+          OPENCODE_MODEL: ${{ secrets.OPENCODE_MODEL }}
+      # 5. Executa o contêiner Docker do Review Agent
       - name: Run Review Agent
         run: |
           docker run --rm \
