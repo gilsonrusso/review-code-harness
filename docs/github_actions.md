@@ -42,7 +42,20 @@ jobs:
         with:
           fetch-depth: 0 # Necessário para carregar o histórico de branch e gerar git diff
 
-      # 2. Executa o contêiner Docker do Review Agent
+      # 2. Instala dependências do Frontend (essencial para que linters locais como o ESLint encontrem seus módulos)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json # Ajuste se o package.json estiver na raiz
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend # Ou a pasta onde está o frontend
+          npm ci
+
+      # 3. Executa o contêiner Docker do Review Agent
       - name: Run Review Agent
         run: |
           docker run --rm \
@@ -57,6 +70,11 @@ jobs:
             -e OPENCODE_MODEL=${{ secrets.OPENCODE_MODEL }} \
             ghcr.io/seu-usuario/review-agent:latest
 ```
+
+> [!IMPORTANT]
+> **Por que instalar as dependências antes de rodar o Review Agent?**
+> Se o seu repositório possui linters ou analisadores estáticos que dependem de dependências locais (por exemplo, configurações de ESLint que importam `@eslint/js` ou `eslint-plugin-react`), a execução do linter falhará por falta de módulo se a pasta `node_modules` não estiver presente.
+> Como a pasta do runner é montada como um volume (`-v $PWD:/workspace`), rodar `npm ci` no runner antes do contêiner garante que todos os módulos locais fiquem acessíveis para as ferramentas executadas pela IA.
 
 ---
 
