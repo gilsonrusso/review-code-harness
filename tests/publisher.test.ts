@@ -65,5 +65,8 @@ describe('GitHubPublisher Markdown Formatter', () => {
     expect(markdown).toContain('`src/utils.ts`');
     expect(markdown).toContain('Complexity');
     expect(markdown).toContain('Quebre em subfunções.');
+
+    // Deve possuir a tag de âncora oculta para deduplicação
+    expect(markdown).toContain('<!-- review-agent-summary-anchor -->');
   });
 });

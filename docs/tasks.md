@@ -61,13 +61,13 @@ Este documento lista as tarefas pendentes para estabilizar o Review Agent e torn
 
 ## 🚀 Evolução e Resiliência de PRs (Próxima Fase)
 
-- [ ] **Task 8: Atualização In-place do Resumo de Revisão (Evitar Duplicação)**
+- [x] **Task 8: Atualização In-place do Resumo de Revisão (Evitar Duplicação)**
   * **Problema**: Cada commit novo enviado ao PR cria um novo comentário de revisão, enchendo a timeline de resumos redundantes.
   * **Ação**: Injetar uma tag HTML oculta (`<!-- review-agent-summary-anchor -->`) no Markdown do resumo e buscar comentários existentes no PR via API do GitHub para editar o resumo anterior em vez de criar um novo.
   * **Arquivo**: [src/github/publisher.ts](../src/github/publisher.ts)
   * **Complexidade**: Baixa-Média
 
-- [ ] **Task 9: Deduplicação de Comentários Inline no PR**
+- [x] **Task 9: Deduplicação de Comentários Inline no PR**
   * **Problema**: O bot reenvia comentários inline já existentes ou que o desenvolvedor já resolveu caso o arquivo e linha continuem inalterados no push.
   * **Ação**: Consultar os comentários inline existentes do bot via `octokit.rest.pulls.listReviewComments` e filtrar as ocorrências já relatadas antes de submeter uma nova revisão.
   * **Arquivo**: [src/github/publisher.ts](../src/github/publisher.ts)
